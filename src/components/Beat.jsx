@@ -52,7 +52,7 @@ export default function Beat({ beat, onActive }) {
   // text reveal: fade + small rise, never a slide from off-screen
   useScene(ref, ({ root, q }) => {
     gsap.from(q('.reveal'), {
-      opacity: 0, y: 12, duration: DUR.slow, ease: EASE.out, stagger: 0.1,
+      opacity: 0, y: 12, duration: DUR.slow, ease: EASE.out, stagger: 0.1, clearProps: 'transform',
       scrollTrigger: { trigger: root, start: 'top 72%', toggleActions: 'play none none reverse' },
     });
   });

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Check, Undo2, RotateCcw } from 'lucide-react';
 import AlesiaPlan, { WEAK_CAMP } from './AlesiaPlan';
+import ZoomToggle from '../components/ZoomToggle';
 import Phrase from '../components/Phrase';
 import { useLang, pick } from '../lib/lang';
 import { gsap, DUR, EASE, prefersReduced } from '../lib/motion';
@@ -39,9 +40,13 @@ export default function FinalAttackGame() {
   const [choice, setChoice] = useState(null);
   const planRef = useRef(null);
   const resultRef = useRef(null);
+  const rootRef = useRef(null);
   const correct = choice === 'rea';
 
   useLayoutEffect(() => {
+    if (choice && resultRef.current && window.matchMedia('(max-width: 760px)').matches) {
+      resultRef.current.scrollIntoView({ block: 'nearest', behavior: prefersReduced() ? 'auto' : 'smooth' });
+    }
     if (!choice || prefersReduced() || !planRef.current) return undefined;
     const q = gsap.utils.selector(planRef.current);
     const ctx = gsap.context(() => {
@@ -53,7 +58,7 @@ export default function FinalAttackGame() {
         .from(q('.atk-cavalry'), { strokeDashoffset: 1, duration: DUR.slow, ease: 'none' }, '-=0.4')
         .from(q('.relief-unit'), { x: 0, opacity: 1, duration: DUR.slow, stagger: { each: 0.03, from: 'random' } }, '-=0.1')
         .from(q('.atk-x'), { scale: 0, opacity: 0, transformOrigin: '50% 50%', duration: DUR.fast });
-      if (resultRef.current) tl.from(resultRef.current, { opacity: 0, y: 12, duration: DUR.base }, 0.2);
+      if (resultRef.current) tl.from(resultRef.current, { opacity: 0, y: 12, duration: DUR.base, clearProps: 'transform' }, 0.2);
     }, planRef.current);
     return () => ctx.revert();
   }, [choice]);
@@ -61,7 +66,8 @@ export default function FinalAttackGame() {
   const [rx, ry] = WEAK_CAMP;
 
   return (
-    <div className="viz viz-plan game">
+    <div className="viz viz-plan game" ref={rootRef}>
+      <ZoomToggle target={rootRef} />
       <p className="game-prompt" id="game-q">
         {en
           ? 'You have one reserve. The Gauls attack everywhere at once. Where do you send it?'

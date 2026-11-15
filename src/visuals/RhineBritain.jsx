@@ -63,7 +63,7 @@ export default function RhineBritain() {
             </g>
           ))}
           <g className="tag-britain">
-            <rect x="248" y="56" width="116" height="24" rx="4" className="tag-bg" />
+            <rect x="236" y="56" width="140" height="24" rx="4" className="tag-bg" />
             <text x="306" y="73" textAnchor="middle" className="map-note">{en ? 'Rome is amazed' : 'Rome est éblouie'}</text>
           </g>
         </g>

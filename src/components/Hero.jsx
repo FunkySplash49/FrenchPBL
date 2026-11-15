@@ -26,8 +26,26 @@ export default function Hero({ onActive, onStart }) {
   return (
     <section id="beat-0" className="hero" ref={ref} aria-labelledby="hero-title" tabIndex={-1}>
       <svg className="hero-rings" viewBox="0 0 600 400" aria-hidden="true">
-        <ellipse cx="300" cy="200" rx="270" ry="170" pathLength="1" className="ring ring-outer" />
-        <ellipse cx="300" cy="200" rx="200" ry="120" pathLength="1" className="ring ring-inner" />
+        <defs>
+          {/* soft glow + fine film grain on the two Roman lines */}
+          <filter id="ring-soft" x="-15%" y="-15%" width="130%" height="130%" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="0.6" result="soft" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="glow" />
+            <feMerge result="lit">
+              <feMergeNode in="glow" />
+              <feMergeNode in="glow" />
+              <feMergeNode in="soft" />
+            </feMerge>
+            <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="7" result="noise" />
+            <feColorMatrix in="noise" type="matrix"
+              values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.6 0 0 0 -0.15" result="grain" />
+            <feComposite in="lit" in2="grain" operator="in" />
+          </filter>
+        </defs>
+        <g filter="url(#ring-soft)">
+          <ellipse cx="300" cy="200" rx="286" ry="186" pathLength="1" className="ring ring-outer" />
+          <ellipse cx="300" cy="200" rx="226" ry="140" pathLength="1" className="ring ring-inner" />
+        </g>
       </svg>
       <div className="hero-inner">
         <p className="hero-sub eyebrow">
@@ -43,8 +61,11 @@ export default function Hero({ onActive, onStart }) {
           <button type="button" className="btn-primary" onClick={onStart}>
             {en ? 'Begin' : 'Commencer'}
           </button>
-          <p className="hero-keys">
+          <p className="hero-keys hint-keys">
             {en ? 'Scroll, or press' : 'Défilez, ou appuyez sur'} <kbd>→</kbd> / <kbd>{en ? 'Space' : 'Espace'}</kbd>
+          </p>
+          <p className="hero-keys hint-touch">
+            {en ? 'Scroll down, or swipe ← → to change step' : 'Faites défiler, ou glissez ← → pour changer d’étape'}
           </p>
         </div>
       </div>

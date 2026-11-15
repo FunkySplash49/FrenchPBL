@@ -52,6 +52,34 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [goTo]);
 
+  // Phones: swipe left / right to change step. Vertical scrolling stays native.
+  useEffect(() => {
+    let start = null;
+    const onStart = (e) => {
+      const t = e.touches[0];
+      const blocked = e.touches.length > 1
+        || e.target.closest?.('.is-zoomed, .tabs, .choices, .rail, input, textarea');
+      start = blocked ? null : { x: t.clientX, y: t.clientY, at: Date.now() };
+    };
+    const onEnd = (e) => {
+      if (!start) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      const quick = Date.now() - start.at < 700;
+      start = null;
+      if (quick && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+        goTo(activeRef.current + (dx < 0 ? 1 : -1));
+      }
+    };
+    window.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, [goTo]);
+
   // Re-measure scroll scenes whenever the story's height changes
   // (web fonts settling, language switch, the game result opening…).
   const storyRef = useRef(null);

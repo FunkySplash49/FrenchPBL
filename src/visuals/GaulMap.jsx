@@ -2,6 +2,7 @@ import { useId, useRef } from 'react';
 import { LAND, BRITAIN, REGIONS, PROVINCE, RIVERS, PLACES, OPPIDA, FIRES } from '../data/gaul';
 import { useLang, pick } from '../lib/lang';
 import { useScene, gsap, sceneTrigger, DUR, EASE, STAGGER } from '../lib/motion';
+import ZoomToggle from '../components/ZoomToggle';
 
 /*
  * One map, five story states:
@@ -116,6 +117,7 @@ export default function GaulMap({ mode = 'tribes' }) {
 
   return (
     <figure className="viz viz-map" ref={ref}>
+      <ZoomToggle target={ref} />
       <svg viewBox="0 0 400 420" role="img" aria-labelledby={`${uid}-t ${uid}-d`} className="map-svg">
         <title id={`${uid}-t`}>{pick(TITLES[mode], lang)}</title>
         <desc id={`${uid}-d`}>{pick(CAPTIONS[mode], lang)}</desc>

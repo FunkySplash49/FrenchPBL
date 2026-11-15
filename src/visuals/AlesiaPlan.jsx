@@ -1,4 +1,5 @@
 import { forwardRef, useId } from 'react';
+import { Fragment } from 'react';
 import { useLang } from '../lib/lang';
 
 /*
@@ -131,3 +132,24 @@ const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = 
 });
 
 export default AlesiaPlan;
+
+/* Written key — shown on phones, where the plan's in-diagram labels are too small to read. */
+export function PlanKey({ showRelief = false, civilians = false }) {
+  const { lang } = useLang();
+  const en = lang === 'en';
+  const rows = [
+    ['rome', en ? 'Inner line · ~16 km · 23 forts (faces the town)' : 'Ligne intérieure · ~16 km · 23 forts (face à la ville)'],
+    ['rome', en ? 'Outer line · ~21 km (faces the relief army)' : 'Ligne extérieure · ~21 km (face au secours)'],
+    ['weak', en ? 'Mont Réa camp, north-west — the weak spot' : 'Camp du Mont Réa, au nord-ouest — le point faible'],
+    ['gaul', en ? 'Alésia on Mont-Auxois, between the Ose and the Oserain' : "Alésia sur le Mont-Auxois, entre l'Ose et l'Oserain"],
+  ];
+  if (civilians) rows.push(['civ', en ? 'Expelled civilians, trapped between the lines' : 'Civils chassés, bloqués entre les lignes']);
+  if (showRelief) rows.push(['gaul', en ? 'Relief army, arriving from the west' : "Armée de secours, arrivée par l'ouest"]);
+  return (
+    <ul className="plan-key">
+      {rows.map(([k, t]) => (
+        <Fragment key={t}><li><span className={`key-sw key-${k}`} aria-hidden="true" />{t}</li></Fragment>
+      ))}
+    </ul>
+  );
+}

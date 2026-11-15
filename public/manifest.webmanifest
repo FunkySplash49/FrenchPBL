@@ -1,0 +1,13 @@
+{
+  "name": "Alésia — 52 av. J.-C.",
+  "short_name": "Alésia",
+  "description": "Le siège d'Alésia en 12 étapes.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1C110A",
+  "theme_color": "#1C110A",
+  "lang": "fr",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
