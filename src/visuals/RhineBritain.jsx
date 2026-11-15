@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useLang } from '../lib/lang';
 import { useScene, gsap, sceneTrigger, DUR, EASE } from '../lib/motion';
+import { useLive, Packet, Brackets } from './motionKit';
 
 /* Beat 5 — the Rhine bridge (built in 10 days) and the boats to Britain. Pure propaganda. */
 const PILES = Array.from({ length: 9 }, (_, i) => 30 + i * 19);
@@ -10,6 +11,7 @@ export default function RhineBritain() {
   const { lang } = useLang();
   const ref = useRef(null);
   const en = lang === 'en';
+  const live = useLive(ref);
 
   useScene(ref, ({ root, q }) => {
     gsap.timeline({ scrollTrigger: sceneTrigger(root), defaults: { ease: EASE.out } })
@@ -23,6 +25,7 @@ export default function RhineBritain() {
 
   return (
     <figure className="viz viz-rhine" ref={ref}>
+      <Brackets />
       <svg viewBox="0 0 400 270" role="img" aria-labelledby="rb-t">
         <title id="rb-t">{en
           ? 'Left: a Roman bridge over the Rhine, built in 10 days (55 BC). Right: Roman boats crossing to Britain (55 and 54 BC).'
@@ -40,6 +43,10 @@ export default function RhineBritain() {
               </g>
             ))}
             <line x1="24" y1="134" x2="200" y2="134" pathLength="1" className="deck" />
+            {/* legionaries march across, methodically */}
+            {live && [0, 1, 2, 3, 4].map((k) => (
+              <Packet key={k} d="M28,127 L196,127" shape="square" size={3} dur={4} begin={k * 0.8} />
+            ))}
           </g>
           <g className="tag-days">
             <rect x="58" y="196" width="84" height="24" rx="4" className="tag-bg" />

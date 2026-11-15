@@ -8,6 +8,7 @@ import Hero from './components/Hero';
 import Beat from './components/Beat';
 import Outro from './components/Outro';
 import BeatRail from './components/BeatRail';
+import { haptic } from './lib/haptics';
 
 const LAST = 13; // 0 = title, 1–12 = beats, 13 = sources
 
@@ -19,7 +20,7 @@ function skyFor(i) {
 
 /* Keys that should not be hijacked when the reader is inside a control. */
 function isInteractive(el) {
-  return !!el?.closest?.('button, a, input, textarea, select, [role="tab"], .term');
+  return !!el?.closest?.('button, a, input, textarea, select, [role="tab"], [role="slider"], .term, .unit');
 }
 
 export default function App() {
@@ -58,7 +59,7 @@ export default function App() {
     const onStart = (e) => {
       const t = e.touches[0];
       const blocked = e.touches.length > 1
-        || e.target.closest?.('.is-zoomed, .tabs, .choices, .rail, input, textarea');
+        || e.target.closest?.('.is-zoomed, .tabs, .choices, .rail, .fx-chart, input, textarea');
       start = blocked ? null : { x: t.clientX, y: t.clientY, at: Date.now() };
     };
     const onEnd = (e) => {
@@ -69,6 +70,7 @@ export default function App() {
       const quick = Date.now() - start.at < 700;
       start = null;
       if (quick && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+        haptic('tick');
         goTo(activeRef.current + (dx < 0 ? 1 : -1));
       }
     };

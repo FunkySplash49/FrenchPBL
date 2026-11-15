@@ -3,6 +3,7 @@ import { Coins, Crown, ShieldCheck, Megaphone } from 'lucide-react';
 import Phrase from '../components/Phrase';
 import { useLang } from '../lib/lang';
 import { useScene, gsap, sceneTrigger, DUR, EASE } from '../lib/motion';
+import { Brackets } from './motionKit';
 
 /* Laurel medallion (Rome = square frame) and torque medallion (Gaul = round frame). */
 function RomanMedallion() {
@@ -59,6 +60,7 @@ export function CaesarCard() {
   const en = lang === 'en';
   return (
     <figure className="viz viz-card" ref={ref}>
+      <Brackets />
       <div className="card-head">
         <RomanMedallion />
         <div>

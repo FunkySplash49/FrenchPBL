@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useLang, pick } from '../lib/lang';
 import Phrase from '../components/Phrase';
 import { useScene, gsap, sceneTrigger, DUR, EASE } from '../lib/motion';
+import { Brackets } from './motionKit';
 
 /* Beat 12 — two versions of the surrender, what came after, the 1865 statue, the closing question. */
 const VERSIONS = {
@@ -30,7 +31,7 @@ const AFTER = [
   { y: { fr: '1865', en: '1865' }, t: { fr: 'Statue de Napoléon III à Alise-Sainte-Reine', en: 'Napoléon III’s statue at Alise-Sainte-Reine' } },
   { y: { fr: 'après 1870', en: 'after 1870' }, t: { fr: '« Nos ancêtres les Gaulois » dans les manuels', en: '“Our ancestors the Gauls” in schoolbooks' } },
   { y: { fr: '1991–97', en: '1991–97' }, t: { fr: 'Les fouilles confirment le site', en: 'Excavations confirm the site' } },
-  { y: { fr: '2012', en: '2012' }, t: { fr: 'Ouverture du MuséoParc Alésia', en: 'MuséoParc Alésia opens' } },
+  { y: { fr: '2012', en: '2012' }, t: { fr: 'Ouverture du [[museoparc|MuséoParc Alésia]]', en: '[[museoparc|MuséoParc Alésia]] opens' } },
 ];
 
 const QUESTION = {
@@ -82,6 +83,7 @@ export default function Legacy() {
 
   return (
     <figure className="viz viz-legacy" ref={ref}>
+      <Brackets />
       <p className="viz-title">{en ? 'Two versions of the surrender' : 'Deux versions de la reddition'}</p>
       <div className="tabs" role="tablist" aria-label={en ? 'Compare the sources' : 'Comparer les sources'}>
         {Object.entries(VERSIONS).map(([id, ver]) => (
@@ -95,9 +97,10 @@ export default function Legacy() {
       <div id="tab-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="tab-panel">
         <Phrase as="p" text={v.text} className="version-text" />
         <Phrase as="p" text={v.src} className="version-src" />
-        <p className="version-note">{en
-          ? 'Lionel Royer’s famous painting (1899) follows Plutarch, not Caesar. That is how legends are made.'
-          : 'Le célèbre tableau de Lionel Royer (1899) suit Plutarque, pas César. C’est ainsi que naissent les légendes.'}</p>
+        <Phrase as="p" className="version-note" text={{
+          fr: 'Le célèbre [[royer|tableau de Lionel Royer]] (1899) suit Plutarque, pas César. C’est ainsi que naissent les légendes.',
+          en: '[[royer|Lionel Royer’s famous painting]] (1899) follows Plutarch, not Caesar. That is how legends are made.',
+        }} />
       </div>
 
       <div className="legacy-grid">
@@ -107,7 +110,7 @@ export default function Legacy() {
         </div>
         <ol className="after">
           {AFTER.map((a) => (
-            <li key={a.y.fr}><span className="after-y">{pick(a.y, lang)}</span><span>{pick(a.t, lang)}</span></li>
+            <li key={a.y.fr}><span className="after-y">{pick(a.y, lang)}</span><Phrase text={a.t} /></li>
           ))}
         </ol>
       </div>

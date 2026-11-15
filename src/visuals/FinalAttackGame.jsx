@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { Check, Undo2, RotateCcw } from 'lucide-react';
 import AlesiaPlan, { WEAK_CAMP } from './AlesiaPlan';
 import ZoomToggle from '../components/ZoomToggle';
+import { Brackets } from './motionKit';
+import { haptic } from '../lib/haptics';
 import Phrase from '../components/Phrase';
 import { useLang, pick } from '../lib/lang';
 import { gsap, DUR, EASE, prefersReduced } from '../lib/motion';
@@ -67,6 +69,7 @@ export default function FinalAttackGame() {
 
   return (
     <div className="viz viz-plan game" ref={rootRef}>
+      <Brackets />
       <ZoomToggle target={rootRef} />
       <p className="game-prompt" id="game-q">
         {en
@@ -106,7 +109,7 @@ export default function FinalAttackGame() {
               className={`choice${picked ? ' is-picked' : ''}${choice && o.id === 'rea' ? ' is-answer' : ''}`}
               aria-pressed={picked}
               disabled={!!choice && !picked}
-              onClick={() => setChoice(o.id)}
+              onClick={() => { haptic(o.id === 'rea' ? 'success' : 'miss'); setChoice(o.id); }}
             >
               {pick(o.label, lang)}
             </button>

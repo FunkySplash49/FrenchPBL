@@ -1,18 +1,24 @@
 import { Fragment } from 'react';
 import { useLang, frTypo } from '../lib/lang';
 import Term from './Term';
+import LinkPreview from './ui/LinkPreview';
 
 /*
  * The only way story text is rendered.
  * text = { fr, en, say? }. In "frp" mode the French is shown with `say` as a pronunciation hint.
  * Inline markup inside strings:
  *   {{key}} or {{key|shown text}}  → vocabulary <Term>
+ *   [[id]] or [[id|shown text]]    → picture preview <LinkPreview> (data/previews.js)
  *   *words*                        → <em>
  */
-const TOKEN = /(\{\{[a-z-]+(?:\|[^}]+)?\}\}|\*[^*]+\*)/g;
+const TOKEN = /(\{\{[a-z-]+(?:\|[^}]+)?\}\}|\[\[[a-z0-9-]+(?:\|[^\]]+)?\]\]|\*[^*]+\*)/g;
 
 function rich(str) {
   return str.split(TOKEN).map((part, i) => {
+    if (part.startsWith('[[')) {
+      const [id, display] = part.slice(2, -2).split('|');
+      return <LinkPreview key={i} id={id}>{display ?? id}</LinkPreview>;
+    }
     if (part.startsWith('{{')) {
       const [id, display] = part.slice(2, -2).split('|');
       return <Term key={i} id={id} display={display} />;

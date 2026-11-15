@@ -3,6 +3,86 @@ import { LAND, BRITAIN, REGIONS, PROVINCE, RIVERS, PLACES, OPPIDA, FIRES } from 
 import { useLang, pick } from '../lib/lang';
 import { useScene, gsap, sceneTrigger, DUR, EASE, STAGGER } from '../lib/motion';
 import ZoomToggle from '../components/ZoomToggle';
+import { useLive, useCycle, Packet, Flow, Brackets, curve } from './motionKit';
+
+/* ── army motion per map state (ink-orbit vocabulary; Rome = squares, Gaul = circles) ── */
+const PROVINCE_HUB = [300, 318];
+const target = (id) => {
+  const r = REGIONS.find((g) => g.id === id);
+  return [r.label[0], r.label[1] - 24];
+};
+const RIVALRIES = [['aedui', 'arverni'], ['aedui', 'helvetii'], ['belgae', 'aedui'], ['arverni', 'armorica'], ['aquitania', 'arverni']];
+const HELVETII_ROUTES = {
+  blocked: 'M360,206 C348,222 338,232 324,240',
+  north: 'M356,166 C330,146 300,146 280,156 S252,176 242,186',
+  rome1: 'M318,330 C318,300 318,276 316,256',
+  rome2: 'M282,330 C276,300 266,268 256,236',
+};
+const SUPPLY = [[200, 182], [230, 166], [176, 206]];
+
+function MapArmies({ mode, live }) {
+  const on = useCycle(CONQUEST_ORDER.length, 1700, live && mode === 'conquest');
+  if (mode === 'tribes') {
+    // divided Gaul: rival links flicker between peoples
+    return (
+      <g aria-hidden="true" className="rivalries">
+        {RIVALRIES.map(([a, b], i) => (
+          <path key={i} d={curve(target(a), target(b), 0.12)} className="rival" style={{ animationDelay: `${i * 0.7}s` }} />
+        ))}
+      </g>
+    );
+  }
+  if (mode === 'helvetii') {
+    if (!live) return null;
+    return (
+      <g aria-hidden="true">
+        {[0, 1, 2].map((k) => <Packet key={`b${k}`} d={HELVETII_ROUTES.blocked} dur={1.8} begin={k * 0.6} />)}
+        {[0, 1, 2, 3].map((k) => <Packet key={`n${k}`} d={HELVETII_ROUTES.north} dur={2.6} begin={k * 0.65} />)}
+        {[0, 1].map((k) => <Packet key={`r${k}`} d={HELVETII_ROUTES.rome1} shape="square" dur={1.6} begin={k * 0.8} />)}
+        {[0, 1].map((k) => <Packet key={`s${k}`} d={HELVETII_ROUTES.rome2} shape="square" dur={2} begin={0.4 + k * 1} />)}
+      </g>
+    );
+  }
+  if (mode === 'conquest') {
+    // the Province as a hub: legions go out to one region at a time
+    return (
+      <g aria-hidden="true">
+        {CONQUEST_ORDER.map((id, i) => (
+          <Flow key={id} d={curve(PROVINCE_HUB, target(id))} side="rome" on={live && on === i} />
+        ))}
+        {live && [0, 1, 2].map((k) => (
+          <Packet key={`${on}-${k}`} d={curve(PROVINCE_HUB, target(CONQUEST_ORDER[on]))} shape="square" dur={1.1} begin={k * 0.36} />
+        ))}
+        {live && <circle cx={target(CONQUEST_ORDER[on])[0]} cy={target(CONQUEST_ORDER[on])[1]} r="11" className="hit-ring" key={`ring-${on}`} />}
+        <rect x={PROVINCE_HUB[0] - 7} y={PROVINCE_HUB[1] - 7} width="14" height="14" rx="2" className="hub-rome" />
+      </g>
+    );
+  }
+  if (mode === 'revolt') {
+    // Gergovie as the hub: Gaul surges out to every people at once
+    const hub = [PLACES.gergovie.x, PLACES.gergovie.y];
+    return (
+      <g aria-hidden="true">
+        {REVOLT_ORDER.map((id) => <Flow key={id} d={curve(hub, target(id), -0.15)} side="gaul" on />)}
+        {live && REVOLT_ORDER.map((id, i) => (
+          <Packet key={id} d={curve(hub, target(id), -0.15)} dur={1.9 + (i % 3) * 0.3} begin={i * 0.23} />
+        ))}
+      </g>
+    );
+  }
+  if (mode === 'burn') {
+    // Roman supply lines starve: convoys fade out half-way
+    return (
+      <g aria-hidden="true">
+        {SUPPLY.map((pt, i) => <Flow key={i} d={curve(PROVINCE_HUB, pt, 0.1)} side="rome" />)}
+        {live && SUPPLY.map((pt, i) => [0, 1].map((k) => (
+          <Packet key={`${i}${k}`} d={curve(PROVINCE_HUB, pt, 0.1)} shape="square" dur={2.6} begin={i * 0.5 + k * 1.3} fade />
+        )))}
+      </g>
+    );
+  }
+  return null;
+}
 
 /*
  * One map, five story states:
@@ -54,6 +134,7 @@ export default function GaulMap({ mode = 'tribes' }) {
   const arrowRome = `ar-${uid}`;
   const arrowGaul = `ag-${uid}`;
   const side = regionSide(mode);
+  const live = useLive(ref);
 
   useScene(ref, ({ root, q }) => {
     const tl = gsap.timeline({ scrollTrigger: sceneTrigger(root), defaults: { ease: EASE.out } });
@@ -117,6 +198,7 @@ export default function GaulMap({ mode = 'tribes' }) {
 
   return (
     <figure className="viz viz-map" ref={ref}>
+      <Brackets />
       <ZoomToggle target={ref} />
       <svg viewBox="0 0 400 420" role="img" aria-labelledby={`${uid}-t ${uid}-d`} className="map-svg">
         <title id={`${uid}-t`}>{pick(TITLES[mode], lang)}</title>
@@ -159,6 +241,9 @@ export default function GaulMap({ mode = 'tribes' }) {
 
         {mode === 'tribes' && (
           <g aria-hidden="true">
+            {OPPIDA.map(([x, y], i) => i % 4 === 0 && (
+              <circle key={`p${i}`} cx={x} cy={y} r="3" className="presence" style={{ animationDelay: `${(i % 7) * 0.4}s` }} />
+            ))}
             {OPPIDA.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3" className="oppidum" />)}
           </g>
         )}
@@ -194,6 +279,8 @@ export default function GaulMap({ mode = 'tribes' }) {
             ))}
           </g>
         )}
+
+        <MapArmies mode={mode} live={live} />
 
         <g className="map-labels">
           {REGIONS.map((r) => label(r, side))}

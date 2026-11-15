@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { VOCAB } from '../data/vocab';
+import { haptic } from '../lib/haptics';
 
 /*
  * A French vocabulary word with a tooltip (English + pronunciation).
@@ -26,7 +27,7 @@ export default function Term({ id, display }) {
 
   if (!v) return <>{display ?? id}</>;
 
-  const toggle = () => setOpen((o) => !o);
+  const toggle = () => { if (!open) haptic('light'); setOpen((o) => !o); };
   return (
     <span
       ref={ref}

@@ -60,6 +60,11 @@ export default function Outro({ onActive, onTop }) {
                 </li>
               ))}
             </ul>
+            <p className="credits">
+              {en
+                ? 'Pictures in the previews: Wikimedia Commons (free licences; tap “Image” on a card for the author and licence).'
+                : 'Images des aperçus : Wikimedia Commons (licences libres ; touchez « Image » sur une carte pour l’auteur et la licence).'}
+            </p>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import AlesiaPlan, { PlanKey } from './AlesiaPlan';
 import ZoomToggle from '../components/ZoomToggle';
+import { useLive, Brackets } from './motionKit';
 import { useLang } from '../lib/lang';
 import { useScene, gsap, sceneTrigger, DUR, EASE, STAGGER } from '../lib/motion';
 
@@ -18,6 +19,7 @@ function Legend({ en, civilians }) {
 export function SiegeBuild() {
   const { lang } = useLang();
   const ref = useRef(null);
+  const live = useLive(ref);
 
   useScene(ref, ({ root, q }) => {
     const tl = gsap.timeline({ scrollTrigger: sceneTrigger(root), defaults: { ease: EASE.out } });
@@ -33,8 +35,9 @@ export function SiegeBuild() {
   const en = lang === 'en';
   return (
     <figure className="viz viz-plan" ref={ref}>
+      <Brackets />
       <ZoomToggle target={ref} />
-      <AlesiaPlan mode="build" />
+      <AlesiaPlan mode="build" live={live} />
       <PlanKey />
       <figcaption className="viz-caption">
         <span>{en
@@ -51,6 +54,7 @@ export function SiegeFamine() {
   const { lang } = useLang();
   const ref = useRef(null);
   const daysRef = useRef(null);
+  const live = useLive(ref);
 
   useScene(ref, ({ root, q }) => {
     const counter = { v: 30 };
@@ -69,13 +73,14 @@ export function SiegeFamine() {
   const en = lang === 'en';
   return (
     <figure className="viz viz-plan" ref={ref}>
+      <Brackets />
       <ZoomToggle target={ref} />
       <div className="food" role="img" aria-label={en ? 'Food inside the town: about 30 days, then nothing.' : 'Vivres dans la ville : environ 30 jours, puis plus rien.'}>
         <span className="food-label">{en ? 'Food' : 'Vivres'}</span>
         <span className="food-bar"><span className="food-fill" /></span>
         <span className="food-days" aria-hidden="true"><span ref={daysRef}>0</span> / 30 {en ? 'days' : 'jours'}</span>
       </div>
-      <AlesiaPlan mode="famine" />
+      <AlesiaPlan mode="famine" live={live} />
       <PlanKey showRelief civilians />
       <figcaption className="viz-caption">
         <span>{en

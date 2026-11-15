@@ -84,8 +84,8 @@ export const BEATS = [
         en: "Pressed by Germanic peoples, the Helvetii (today's Switzerland) plan to migrate west through the Roman Province. Caesar blocks them at the Rhône.",
       },
       {
-        fr: "Ils passent alors par le pays des Éduens, alliés de Rome, qui appellent César à l'aide. Il a son invitation : la guerre commence pour « protéger des alliés »… et finira par tout conquérir.",
-        en: 'They take another route through the land of the Éduens, Rome\'s allies, who call Caesar for help. He has his invitation: the war starts as "protecting allies"… and ends up conquering everything.',
+        fr: "Ils passent alors par le pays des Éduens, alliés de Rome, qui appellent [[cesar|César]] à l'aide. Il a son invitation : la guerre commence pour « protéger des alliés »… et finira par tout conquérir.",
+        en: 'They take another route through the land of the Éduens, Rome\'s allies, who call [[cesar|Caesar]] for help. He has his invitation: the war starts as "protecting allies"… and ends up conquering everything.',
       },
     ],
     handover: {
@@ -133,8 +133,8 @@ export const BEATS = [
         en: 'In 55 his engineers bridge the Rhine in 10 days; the same year he lands in Britain, and goes back in 54. Little land is gained — but Rome is amazed.',
       },
       {
-        fr: "Chaque hiver, César envoie ses rapports à Rome. Ils deviendront son livre, *La Guerre des Gaules* : sa propre publicité. Mais à l'hiver 54, Ambiorix détruit une légion et demie. Les Gaulois peuvent battre Rome.",
-        en: 'Every winter Caesar sends his reports to Rome. They become his book, *The Gallic War*: his own PR. But in winter 54, Ambiorix destroys a legion and a half. Gauls can beat Rome.',
+        fr: "Chaque hiver, César envoie ses rapports à Rome. Ils deviendront son livre, [[bello|La Guerre des Gaules]] : sa propre publicité. Mais à l'hiver 54, Ambiorix détruit une légion et demie. Les Gaulois peuvent battre Rome.",
+        en: 'Every winter Caesar sends his reports to Rome. They become his book, [[bello|The Gallic War]]: his own PR. But in winter 54, Ambiorix destroys a legion and a half. Gauls can beat Rome.',
       },
     ],
     handover: {
@@ -157,8 +157,8 @@ export const BEATS = [
     },
     body: [
       {
-        fr: "Jeune noble arverne, né vers 82 av. J.-C. Chassé de Gergovie par les anciens, il lève une armée de pauvres, reprend la ville et se fait proclamer roi. À Bibracte, un conseil en fait le chef suprême.",
-        en: 'A young Arverne noble, born around 82 BC. Expelled from Gergovie by cautious elders, he raises an army of the poor, retakes the town and is hailed as king. At Bibracte a council makes him supreme commander.',
+        fr: "Jeune noble arverne, né vers 82 av. J.-C. Chassé de [[gergovie|Gergovie]] par les anciens, il lève une armée de pauvres, reprend la ville et se fait proclamer roi. À [[bibracte|Bibracte]], un conseil en fait le chef suprême.",
+        en: 'A young Arverne noble, born around 82 BC. Expelled from [[gergovie|Gergovie]] by cautious elders, he raises an army of the poor, retakes the town and is hailed as king. At [[bibracte|Bibracte]] a council makes him supreme commander.',
       },
       {
         fr: "Il frappe au bon moment : César est en Italie du Nord, et ses légions sont coupées dans leurs camps d'hiver. Pour la première fois, presque toute la Gaule se bat derrière un seul chef.",
@@ -182,8 +182,8 @@ export const BEATS = [
         en: 'No pitched battles against the legions: cavalry harass Roman foraging parties, and villages, crops and towns are burned. This is {{terre}}: starve an army that lives off the land.',
       },
       {
-        fr: "Mais les Bituriges le supplient d'épargner leur belle ville, Avaricum (Bourges). Il cède, contre son avis. Après environ 25 jours de siège, les Romains la prennent : selon César, environ 800 personnes sur quelque 40 000 s'échappent.",
-        en: 'But the Bituriges beg him to spare their beautiful town, Avaricum (Bourges). He gives in, against his own judgement. After about 25 days of siege the Romans storm it: according to Caesar, only around 800 of some 40,000 people escape.',
+        fr: "Mais les Bituriges le supplient d'épargner leur belle ville, [[avaricum|Avaricum]] (Bourges). Il cède, contre son avis. Après environ 25 jours de siège, les Romains la prennent : selon César, environ 800 personnes sur quelque 40 000 s'échappent.",
+        en: 'But the Bituriges beg him to spare their beautiful town, [[avaricum|Avaricum]] (Bourges). He gives in, against his own judgement. After about 25 days of siege the Romans storm it: according to Caesar, only around 800 of some 40,000 people escape.',
       },
     ],
     facts: [
@@ -207,8 +207,8 @@ export const BEATS = [
         en: "Caesar attacks the Arverne capital, near Clermont-Ferrand. The assault fails: he himself admits losing 46 centurions and about 700 men — modern estimates are higher. It is his only major defeat in Gaul. Even the Éduens, Rome's oldest allies, switch sides.",
       },
       {
-        fr: "Puis l'erreur : en juillet, Vercingétorix attaque la colonne romaine en marche. La cavalerie germanique de César met ses cavaliers en déroute. Plutôt que de risquer une bataille, il se replie sur un {{oppidum}} : Alésia.",
-        en: "Then the mistake: in July Vercingétorix attacks Caesar's marching column. Caesar's Germanic cavalry rout the Gallic horsemen. Rather than risk a battle, he falls back to an {{oppidum}}: Alésia.",
+        fr: "Puis l'erreur : en juillet, [[vercingetorix|Vercingétorix]] attaque la colonne romaine en marche. La cavalerie germanique de César met ses cavaliers en déroute. Plutôt que de risquer une bataille, il se replie sur un {{oppidum}} : [[alesia|Alésia]].",
+        en: "Then the mistake: in July [[vercingetorix|Vercingétorix]] attacks Caesar's marching column. Caesar's Germanic cavalry rout the Gallic horsemen. Rather than risk a battle, he falls back to an {{oppidum}}: [[alesia|Alésia]].",
       },
     ],
     handover: {
@@ -310,12 +310,12 @@ export const BEATS = [
     },
     body: [
       {
-        fr: "Vercingétorix passe environ six ans en prison à Rome. Il est exhibé au {{triomphe}} de César en 46 av. J.-C., puis exécuté. Selon Plutarque et Appien, un million de Gaulois tués et un million réduits en esclavage : sans doute exagéré, mais la dévastation est réelle.",
-        en: "Vercingétorix spends about six years in prison in Rome. He is paraded in Caesar's {{triomphe}} in 46 BC, then executed. Plutarch and Appian claim one million Gauls killed and one million enslaved: probably inflated, but the devastation was real.",
+        fr: "Vercingétorix passe environ six ans en prison à Rome. Il est exhibé au {{triomphe}} de César en 46 av. J.-C., puis exécuté. Selon [[plutarque|Plutarque]] et Appien, un million de Gaulois tués et un million réduits en esclavage : sans doute exagéré, mais la dévastation est réelle.",
+        en: "Vercingétorix spends about six years in prison in Rome. He is paraded in Caesar's {{triomphe}} in 46 BC, then executed. [[plutarque|Plutarch]] and Appian claim one million Gauls killed and one million enslaved: probably inflated, but the devastation was real.",
       },
       {
-        fr: "Riche et suivi d'une armée fidèle, César franchit le Rubicon en 49 et devient dictateur. La Gaule devient provinces romaines en 27 av. J.-C. : c'est la {{romanisation}}. En 1865, Napoléon III fait dresser une statue géante de Vercingétorix à Alise-Sainte-Reine.",
-        en: 'Rich and backed by a loyal army, Caesar crosses the Rubicon in 49 and becomes dictator. Gaul becomes Roman provinces in 27 BC: {{romanisation}}. In 1865 Napoléon III puts up a giant statue of Vercingétorix at Alise-Sainte-Reine.',
+        fr: "Riche et suivi d'une armée fidèle, César franchit le Rubicon en 49 et devient dictateur. La Gaule devient provinces romaines en 27 av. J.-C. : c'est la {{romanisation}}. En 1865, Napoléon III fait dresser [[statue|une statue géante de Vercingétorix]] à Alise-Sainte-Reine.",
+        en: 'Rich and backed by a loyal army, Caesar crosses the Rubicon in 49 and becomes dictator. Gaul becomes Roman provinces in 27 BC: {{romanisation}}. In 1865 Napoléon III puts up [[statue|a giant statue of Vercingétorix]] at Alise-Sainte-Reine.',
       },
     ],
     visual: { kind: 'legacy' },

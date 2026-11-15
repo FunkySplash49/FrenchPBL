@@ -1,5 +1,6 @@
 import { Languages } from 'lucide-react';
 import { useLang } from '../lib/lang';
+import { haptic } from '../lib/haptics';
 
 const LABEL = {
   fr:  { short: 'FR', long: 'Français', next: 'English' },
@@ -18,7 +19,7 @@ export default function TopBar({ onHome }) {
       <button
         type="button"
         className="lang-btn"
-        onClick={cycle}
+        onClick={() => { haptic('light'); cycle(); }}
         aria-label={`${lang === 'en' ? 'Language' : 'Langue'} : ${l.long}. ${lang === 'en' ? 'Switch to' : 'Passer en'} ${l.next}`}
       >
         <Languages size={20} strokeWidth={1.75} aria-hidden="true" />

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Maximize2, X } from 'lucide-react';
 import { useLang } from '../lib/lang';
 import { ScrollTrigger } from '../lib/motion';
+import { haptic } from '../lib/haptics';
 
 /*
  * Phones: open a diagram full screen so it can be panned and pinch-zoomed.
@@ -43,7 +44,7 @@ export default function ZoomToggle({ target }) {
     <button
       type="button"
       className={`zoom-toggle${open ? ' is-open' : ''}`}
-      onClick={() => setOpen((o) => !o)}
+      onClick={() => { haptic('light'); setOpen((o) => !o); }}
       aria-pressed={open}
       aria-label={open ? (en ? 'Close full screen' : 'Fermer le plein écran') : (en ? 'Open full screen' : 'Agrandir en plein écran')}
     >

@@ -1,6 +1,7 @@
 import { forwardRef, useId } from 'react';
 import { Fragment } from 'react';
 import { useLang } from '../lib/lang';
+import { Packet, Flow, UnitTip, ellipsePath } from './motionKit';
 
 /*
  * Schematic plan of the siege (viewBox 0 0 600 440). Not to scale.
@@ -31,13 +32,21 @@ const RELIEF = Array.from({ length: 22 }, (_, i) => {
   return onEllipse(OUTER, deg, i > 10 ? 1.24 : 1.13);
 });
 
+/* relief army approach routes (from the west, onto the plain) */
+const APPROACH = [
+  'M0,120 C30,130 46,140 70,150',
+  'M0,230 C26,232 30,236 48,240',
+  'M0,340 C30,334 50,326 76,316',
+  'M40,0 C60,30 80,52 104,70',
+];
+
 export const SECTORS = {
   rea:    { x: WEAK_CAMP[0], y: WEAK_CAMP[1] },
   plaine: { x: 92, y: 300 },
   sud:    { x: 420, y: 392 },
 };
 
-const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = null, routed = false, children }, ref) {
+const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = null, routed = false, live = false, children }, ref) {
   const { lang } = useLang();
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const en = lang === 'en';
@@ -71,8 +80,10 @@ const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = 
       <g className="plan-scene">
         {/* the town on Mont-Auxois */}
         <g className="plan-town">
-          <ellipse cx={C.x + 4} cy={C.y} rx="92" ry="42" className="plateau" />
-          {DEFENDERS.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="5" className="unit-gaul defender" />)}
+          <UnitTip label={en ? 'Alésia · ~80,000 Gauls (per Caesar)' : 'Alésia · ~80 000 Gaulois (selon César)'} x={C.x + 4} y={C.y + 62}>
+            <ellipse cx={C.x + 4} cy={C.y} rx="92" ry="42" className="plateau" />
+            {DEFENDERS.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="5" className="unit-gaul defender" />)}
+          </UnitTip>
           <text x={C.x + 4} y={C.y - 50} textAnchor="middle" className="plan-label">Alésia</text>
         </g>
 
@@ -89,8 +100,13 @@ const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = 
         {/* camps */}
         <g className="camps">
           {CAMPS.map(({ deg, p: [x, y] }) => (
-            <rect key={deg} x={x - 9} y={y - 9} width="18" height="18" rx="2"
-              className={`unit-rome camp${deg === -150 ? ' camp-weak' : ''}`} />
+            <UnitTip key={deg} x={x} y={y - 14}
+              label={deg === -150
+                ? (en ? 'Mont Réa · badly placed camp' : 'Mont Réa · camp mal placé')
+                : (en ? 'Roman camp' : 'Camp romain')}>
+              <rect x={x - 9} y={y - 9} width="18" height="18" rx="2"
+                className={`unit-rome camp${deg === -150 ? ' camp-weak' : ''}`} />
+            </UnitTip>
           ))}
         </g>
 
@@ -115,10 +131,26 @@ const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = 
           </g>
         )}
 
-        {showRelief && (
-          <g className={`relief${routed ? ' is-routed' : ''}`} aria-hidden="true">
-            {RELIEF.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="6" className="unit-gaul relief-unit" />)}
+        {/* Rome patrols its inner ring — Caesar's "internal lines" */}
+        {live && mode === 'build' && [0, 1, 2, 3].map((k) => (
+          <Packet key={k} d={ellipsePath(INNER)} shape="square" size={3.6} dur={9} begin={k * 2.25} />
+        ))}
+
+        {showRelief && mode === 'famine' && (
+          <g aria-hidden="true">
+            {APPROACH.map((d) => <Flow key={d} d={d} side="gaul" on />)}
+            {live && APPROACH.map((d, i) => [0, 1].map((k) => (
+              <Packet key={`${i}${k}`} d={d} dur={1.6 + (i % 2) * 0.4} begin={i * 0.3 + k * 0.85} />
+            )))}
           </g>
+        )}
+
+        {showRelief && (
+          <UnitTip label={en ? 'Relief army (Vercassivellaunos)' : 'Armée de secours (Vercassivellaunos)'} x={70} y={44}>
+            <g className={`relief${routed ? ' is-routed' : ''}`}>
+              {RELIEF.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="6" className="unit-gaul relief-unit" />)}
+            </g>
+          </UnitTip>
         )}
 
         {highlight && SECTORS[highlight] && (

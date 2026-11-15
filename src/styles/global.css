@@ -597,3 +597,130 @@ html.zoom-lock, html.zoom-lock body { overflow: hidden; }
 
 /* full-screen diagram sits inside the story layer, so hide the bars above it */
 html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
+
+/* ════════════════════════════════════════════════════════════════
+   Picture previews (components/ui/LinkPreview)
+   ════════════════════════════════════════════════════════════════ */
+.lp-link {
+  color: inherit; text-decoration: underline; text-decoration-thickness: 1px;
+  text-decoration-color: var(--text-muted); text-underline-offset: 4px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-out);
+}
+.lp-link.is-italic { font-style: italic; }
+.lp-link:hover { text-decoration-color: var(--accent); }
+.lp-arrow { font-size: 0.7em; margin-left: 2px; color: var(--text-muted); vertical-align: 0.35em; font-style: normal; }
+.lp-content { z-index: var(--z-loader); transform-origin: var(--radix-hover-card-content-transform-origin); }
+.lp-card {
+  width: 252px; padding: 6px; border-radius: var(--radius-md);
+  background: var(--ink-950); border: 1px solid var(--border-strong);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.55), var(--glow-gold);
+}
+.lp-card-link { display: grid; gap: var(--space-2); color: var(--text); text-decoration: none; }
+.lp-card img {
+  display: block; width: 240px; height: 150px; object-fit: cover;
+  border-radius: calc(var(--radius-md) - 4px); background: var(--ink-800);
+}
+.lp-caption { padding: 0 var(--space-2); font-size: var(--text-sm); line-height: 1.4; }
+.lp-more { padding: 0 var(--space-2); font-family: var(--font-display); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em; color: var(--accent); }
+.lp-credit { display: block; padding: var(--space-1) var(--space-2) 2px; font-size: 0.75rem; color: var(--text-muted); text-decoration: none; }
+.lp-credit:hover { text-decoration: underline; }
+
+/* ════════════════════════════════════════════════════════════════
+   Army motion (visuals/motionKit) — ink-orbit vocabulary, Alésia tokens
+   ════════════════════════════════════════════════════════════════ */
+/* corner brackets around diagrams */
+.viz { position: relative; }
+.brk {
+  position: absolute; width: 12px; height: 12px; pointer-events: none;
+  border: 0 solid var(--border-strong);
+  transition: border-color var(--dur-fast) var(--ease-out), transform 350ms var(--ease-out);
+}
+.brk-tl { top: -6px; left: -6px; border-top-width: 1.5px; border-left-width: 1.5px; }
+.brk-tr { top: -6px; right: -6px; border-top-width: 1.5px; border-right-width: 1.5px; }
+.brk-bl { bottom: -6px; left: -6px; border-bottom-width: 1.5px; border-left-width: 1.5px; }
+.brk-br { bottom: -6px; right: -6px; border-bottom-width: 1.5px; border-right-width: 1.5px; }
+@media (hover: hover) {
+  .viz:hover > .brk { border-color: var(--accent); }
+  .viz:hover > .brk-tl { transform: translate(-3px, -3px); }
+  .viz:hover > .brk-tr { transform: translate(3px, -3px); }
+  .viz:hover > .brk-bl { transform: translate(-3px, 3px); }
+  .viz:hover > .brk-br { transform: translate(3px, 3px); }
+}
+.viz.is-zoomed > .brk { display: none; }
+
+/* travelling units */
+.pkt-rome { fill: var(--rome-text); stroke: var(--ink-950); stroke-width: 0.8; }
+.pkt-gaul { fill: var(--gaul-text); stroke: var(--ink-950); stroke-width: 0.8; }
+
+/* routes that stream */
+.flow { fill: none; stroke-width: 1.4; stroke-linecap: round; opacity: 0.45; transition: opacity var(--dur-base) var(--ease-out), stroke-width var(--dur-base) var(--ease-out); }
+.flow-rome { stroke: var(--rome-text); }
+.flow-gaul { stroke: var(--gaul-text); }
+.flow.is-dashed { stroke-dasharray: 3 4; animation: flow-stream 1.2s linear infinite; }
+.flow.is-on { opacity: 0.95; stroke-width: 1.8; }
+@keyframes flow-stream { to { stroke-dashoffset: -14; } }
+
+/* divided Gaul: rival links flicker */
+.rival { fill: none; stroke: var(--parchment-50); stroke-width: 1; stroke-dasharray: 2 4; opacity: 0.12; animation: rival-flicker 3.4s ease-in-out infinite; }
+@keyframes rival-flicker { 0%, 100% { opacity: 0.08; } 45% { opacity: 0.5; } 55% { opacity: 0.12; } }
+
+/* presence pulse (oppida) and arrival ring (conquest) */
+.presence, .hit-ring { fill: none; stroke: var(--gold-400); stroke-width: 1.2; transform-box: fill-box; transform-origin: center; }
+.presence { animation: presence 2.4s ease-out infinite; }
+.hit-ring { stroke: var(--rome-text); animation: presence 1.7s ease-out 1; }
+@keyframes presence { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(3.2); } }
+.hub-rome { fill: var(--rome); stroke: var(--rome-text); stroke-width: 1.2; }
+
+/* civilians trapped between the lines slowly fade */
+.civilians { animation: civ-fade 5s ease-in-out infinite alternate; }
+@keyframes civ-fade { from { opacity: 1; } to { opacity: 0.35; } }
+
+/* tappable units */
+.unit { cursor: pointer; outline: none; }
+.unit-body { transform-box: fill-box; transform-origin: center; transition: transform 350ms var(--ease-out); }
+.unit-tip { opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-out); }
+.unit-tip rect { fill: var(--ink-950); stroke: var(--border-strong); }
+.unit-tip text { font-family: var(--font-body); font-size: 12px; fill: var(--text); }
+@media (hover: hover) {
+  .unit:hover .unit-body { transform: scale(1.12); }
+  .unit:hover .unit-tip { opacity: 1; }
+}
+.unit:focus-visible .unit-body, .unit.is-on .unit-body { transform: scale(1.12); }
+.unit:focus-visible .unit-tip, .unit.is-on .unit-tip { opacity: 1; }
+.unit:focus-visible .unit-body { filter: drop-shadow(0 0 3px var(--gold-400)); }
+@media (max-width: 560px) { .unit-tip text { font-size: 20px; } .unit-tip rect { transform: scale(1.6, 1.5); transform-box: fill-box; transform-origin: center; } }
+
+/* ── Gergovie: scrubbable fortunes chart ─────────────────────── */
+.fx-chart { touch-action: pan-y; cursor: ew-resize; border-radius: var(--radius-sm); }
+.fx-grid { stroke: rgb(247 236 214 / 0.07); }
+.fx-zero { stroke: rgb(247 236 214 / 0.35); stroke-dasharray: 3 3; }
+.fx-axis { font-family: var(--font-display); font-size: 9px; font-weight: 600; letter-spacing: 0.08em; fill: var(--text-muted); }
+.fx-area-rome { fill: var(--rome); opacity: 0.35; }
+.fx-area-gaul { fill: var(--gaul-text); opacity: 0.25; }
+.fx-line { fill: none; stroke: var(--parchment-50); stroke-width: 1.8; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.fx-pt-rome { fill: var(--rome); stroke: var(--rome-text); }
+.fx-pt-gaul { fill: var(--gaul-text); }
+.fx-pt.is-on { stroke: var(--gold-400); stroke-width: 2; }
+.fx-cursor-line { stroke: rgb(247 236 214 / 0.35); }
+.fx-halo { fill: none; stroke-width: 1.5; opacity: 0.8; }
+.fx-halo.is-rome { stroke: var(--rome-text); }
+.fx-halo.is-gaul { stroke: var(--gaul-text); }
+.fx-tip { fill: var(--ink-950); stroke: var(--border-strong); }
+.fx-tip-text { font-family: var(--font-display); font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; fill: var(--text); }
+.fx-readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); min-height: 3.2em; }
+.fx-badge { font-family: var(--font-display); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; padding: 1px var(--space-2); border-radius: var(--radius-sm); border: 1px solid currentColor; }
+.fx-badge.is-rome { color: var(--rome-text); }
+.fx-badge.is-gaul { color: var(--gaul-text); }
+.fx-hint { font-size: var(--text-sm); color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .flow.is-dashed, .rival, .presence, .hit-ring, .civilians { animation: none; }
+  .presence, .hit-ring { display: none; }
+  .unit-body, .brk { transition: none; }
+}
+
+.credits { margin-top: var(--space-4); font-size: var(--text-sm); color: var(--text-muted); }
+@media (max-width: 560px) {
+  .fx-axis { font-size: 12px; }
+  .fx-tip-text { font-size: 11.5px; }
+}

@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BEATS, PARTS } from '../data/beats';
 import { useLang, pick } from '../lib/lang';
+import { haptic } from '../lib/haptics';
 
 /* Bottom navigation: 12 steps grouped by part (desktop), prev / counter / next (phones). */
 export default function BeatRail({ active, onJump }) {
@@ -34,14 +35,14 @@ export default function BeatRail({ active, onJump }) {
       </ol>
 
       <div className="rail-compact">
-        <button type="button" className="rail-arrow" onClick={() => onJump(Math.max(0, active - 1))}
+        <button type="button" className="rail-arrow" onClick={() => { haptic('tick'); onJump(Math.max(0, active - 1)); }}
           aria-label={en ? 'Previous step' : 'Étape précédente'} disabled={active <= 0}>
           <ChevronLeft size={22} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <span className="rail-count" aria-live="polite">
           {active > 0 ? <>{String(active).padStart(2, '0')} / 12 · {pick(current?.date, lang)}</> : (en ? 'Start' : 'Début')}
         </span>
-        <button type="button" className="rail-arrow" onClick={() => onJump(Math.min(13, active + 1))}
+        <button type="button" className="rail-arrow" onClick={() => { haptic('tick'); onJump(Math.min(13, active + 1)); }}
           aria-label={en ? 'Next step' : 'Étape suivante'} disabled={active >= 13}>
           <ChevronRight size={22} strokeWidth={1.75} aria-hidden="true" />
         </button>
