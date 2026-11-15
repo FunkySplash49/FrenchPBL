@@ -594,3 +594,6 @@ html.zoom-lock, html.zoom-lock body { overflow: hidden; }
   .choice { width: 100%; }
   .hero-lead { font-size: var(--text-base); }
 }
+
+/* full-screen diagram sits inside the story layer, so hide the bars above it */
+html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }

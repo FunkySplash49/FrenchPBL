@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Maximize2, X } from 'lucide-react';
 import { useLang } from '../lib/lang';
+import { ScrollTrigger } from '../lib/motion';
 
 /*
  * Phones: open a diagram full screen so it can be panned and pinch-zoomed.
@@ -17,6 +18,9 @@ export default function ZoomToggle({ target }) {
     if (!fig) return undefined;
     const slot = fig.parentElement;
     if (open) {
+      // freeze this diagram's scroll scenes so going full screen never resets them
+      const frozen = ScrollTrigger.getAll().filter((st) => st.trigger && fig.contains(st.trigger));
+      frozen.forEach((st) => st.disable(false));
       slot.style.minHeight = `${fig.offsetHeight}px`;
       fig.classList.add('is-zoomed');
       document.documentElement.classList.add('zoom-lock');
@@ -28,6 +32,8 @@ export default function ZoomToggle({ target }) {
         fig.classList.remove('is-zoomed');
         document.documentElement.classList.remove('zoom-lock');
         slot.style.minHeight = '';
+        frozen.forEach((st) => st.enable(false));
+        ScrollTrigger.refresh();
       };
     }
     return undefined;
