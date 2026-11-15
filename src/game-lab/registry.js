@@ -2,7 +2,6 @@ import { lazy } from 'react';
 
 /*
  * Game registry. Each entry is a self-contained component (lazy-loaded → its own chunk).
- * (games/Rempart.jsx — Into the Breach — was parked unfinished and is not listed.)
  * To put a game in the story:  import { GAMES } from '../game-lab/registry'
  * and render <Suspense><Game /></Suspense> as a beat's visual (see README in this folder).
  */
@@ -42,6 +41,15 @@ export const GAMES = [
     minutes: 3,
     pitch: { fr: 'Inspectez les témoignages et tamponnez : fiable, exagéré ou légende.', en: 'Inspect the testimonies and stamp them: reliable, exaggerated or legend.' },
     component: lazy(() => import('./games/SelonCesar')),
+  },
+  {
+    id: 'breach',
+    title: { fr: 'Tenir le rempart', en: 'Hold the rampart' },
+    inspired: 'Into the Breach',
+    depth: 'complex',
+    minutes: 4,
+    pitch: { fr: 'Chaque attaque gauloise est annoncée à l’avance : déplacez vos cohortes, lancez le pilum, repoussez dans les lis.', en: 'Every Gallic attack is telegraphed: move your cohorts, throw the pilum, push them into the lilies.' },
+    component: lazy(() => import('./games/Rempart')),
   },
   {
     id: 'percee',

@@ -9,8 +9,8 @@ Open: `npm run dev` → http://localhost:5173/game-lab.html (`?g=<id>` opens one
 | `wordle` | **Le mot gaulois** — guess a French word of Gaulish origin | Wordle | simple |
 | `reigns` | **Le conseil de Vercingétorix** — 12 swipe decisions of 52 BC | Reigns | simple |
 | `papers` | **Selon César ?** — stamp testimonies reliable / doubtful / legend | Papers, Please | simple |
+| `breach` | **Tenir le rempart** — telegraphed Gallic attacks on 7 wall sections; pilum, shield, push into the lilies | Into the Breach | complex |
 
-Parked (not listed): `games/Rempart.jsx` (Into the Breach idea, placeholder only).
 
 ## Putting a game in the story
 
