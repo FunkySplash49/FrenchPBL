@@ -133,6 +133,19 @@ function evaluate(state, side) {
   return side === 'G' ? gaulScore : -gaulScore;
 }
 
+export function aiMoveEasy(state, rnd = Math.random) {
+  // easy: greedy one-move look, very noisy — beatable by beginners
+  const side = state.turn;
+  let best = null; let bestScore = -Infinity;
+  for (const m of allMoves(state.board, side)) {
+    const s1 = apply(state, m, false);
+    if (s1.winner === side) return m;
+    const score = evaluate(s1, side) + rnd() * 120;
+    if (score > bestScore) { bestScore = score; best = m; }
+  }
+  return best;
+}
+
 export function aiMove(state, rnd = Math.random) {
   // depth-2 minimax: my move, then the opponent's best reply, judged from my side
   const side = state.turn;

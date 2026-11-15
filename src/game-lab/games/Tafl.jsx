@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GameFrame, Card, Debrief, useT, haptic } from '../kit';
-import { initial, apply, aiMove, movesFrom, N, isCorner, isThrone } from './tafl/rules';
+import { initial, apply, aiMove, aiMoveEasy, movesFrom, N, isCorner, isThrone } from './tafl/rules';
 import './Tafl.css';
 
 /*
@@ -157,6 +157,7 @@ export default function Tafl() {
   const [cur, setCur] = useState([4, 4]);
   const [thinking, setThinking] = useState(false);
   const [webgl, setWebgl] = useState(true);
+  const [level, setLevel] = useState('normal');
   const stateRef = useRef(state); stateRef.current = state;
 
   const human = (turn) => mode === 'both' || mode === turn;
@@ -306,7 +307,7 @@ export default function Tafl() {
     if (!mode || state.winner || human(state.turn)) return undefined;
     setThinking(true);
     const id = setTimeout(() => {
-      const m = aiMove(state);
+      const m = (level === 'easy' ? aiMoveEasy : aiMove)(state);
       if (m) setState(apply(state, m));
       setThinking(false);
     }, AI_DELAY);
@@ -345,6 +346,11 @@ export default function Tafl() {
         <Card title={{ fr: 'Le siège, en jeu de plateau', en: 'The siege as a board game' }}>
           <p>{t({ fr: 'Au centre, Vercingétorix (●, couronné) et ses guerriers. Autour, les Romains (■). Les Gaulois gagnent si le roi atteint un coin doré ; Rome gagne si elle entoure le roi sur ses 4 côtés.', en: 'In the centre, Vercingétorix (●, crowned) and his warriors. Around them, the Romans (■). The Gauls win if the king reaches a golden corner; Rome wins by surrounding the king on all 4 sides.' })}</p>
           <p className="gf-simplified">{t({ fr: 'Les pièces se déplacent comme une tour aux échecs. On capture une pièce en la prenant en sandwich. Glissez pour tourner la caméra.', en: 'Pieces move like a chess rook. Capture by sandwiching an enemy piece. Drag to turn the camera.' })}</p>
+          <div className="gf-row" role="group" aria-label={t({ fr: 'Difficulté', en: 'Difficulty' })}>
+            <span className="gf-simplified">{t({ fr: 'Ordinateur :', en: 'Computer:' })}</span>
+            <button type="button" className={`gf-btn${level === 'easy' ? ' is-on' : ''}`} aria-pressed={level === 'easy'} onClick={() => setLevel('easy')}>{t({ fr: 'Facile', en: 'Easy' })}</button>
+            <button type="button" className={`gf-btn${level === 'normal' ? ' is-on' : ''}`} aria-pressed={level === 'normal'} onClick={() => setLevel('normal')}>{t({ fr: 'Normal', en: 'Normal' })}</button>
+          </div>
           <div className="gf-row">
             <button type="button" className="btn-primary" onClick={() => { haptic('light'); setMode('G'); }}>{t({ fr: 'Jouer les Gaulois', en: 'Play the Gauls' })}</button>
             <button type="button" className="gf-btn" onClick={() => { haptic('light'); setMode('R'); }}>{t({ fr: 'Jouer Rome', en: 'Play Rome' })}</button>

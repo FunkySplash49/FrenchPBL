@@ -724,3 +724,5 @@ html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
   .fx-axis { font-size: 12px; }
   .fx-tip-text { font-size: 11.5px; }
 }
+
+.lab-cta { display: inline-flex; align-items: center; justify-self: start; text-decoration: none; }

@@ -167,6 +167,21 @@ export function createFP(canvas, w, colors) {
   const halo = new THREE.PointLight(0xffc98a, 6, 6, 1.5);
   scene.add(lantern, halo);
 
+  // the horse you ride: neck, mane and ears at the bottom of the view (attached to the camera)
+  const horse = new THREE.Group();
+  const coat = keep(flat(0x3a2414)); const maneMat = keep(flat(0x140c07));
+  const neck = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.16, 0.26, 1.1, 6)), coat);
+  neck.rotation.x = -1.15; neck.position.set(0, -0.62, -0.75);
+  const head = new THREE.Mesh(keep(new THREE.BoxGeometry(0.22, 0.24, 0.62)), coat);
+  head.rotation.x = 0.35; head.position.set(0, -0.48, -1.3);
+  const mane = new THREE.Mesh(keep(new THREE.BoxGeometry(0.06, 0.12, 0.95)), maneMat);
+  mane.rotation.x = -0.45; mane.position.set(0, -0.44, -0.78);
+  const earGeo = keep(new THREE.ConeGeometry(0.05, 0.16, 4));
+  const earL = new THREE.Mesh(earGeo, coat); earL.position.set(-0.07, -0.3, -1.08); earL.rotation.x = -0.3;
+  const earR = earL.clone(); earR.position.x = 0.07;
+  horse.add(neck, head, mane, earL, earR);
+  camera.add(horse); scene.add(camera);
+
   let shakeT = 0;
   const resize = () => {
     const wpx = canvas.clientWidth; const hpx = canvas.clientHeight;
@@ -186,6 +201,9 @@ export function createFP(canvas, w, colors) {
       camera.position.set(x + (Math.random() - 0.5) * jit, EYE + bob + (Math.random() - 0.5) * jit, z + (Math.random() - 0.5) * jit);
       const lx = Math.cos(heading); const lz = Math.sin(heading);
       camera.lookAt(x + lx * 10, EYE - 0.6, z + lz * 10);
+      // horse head nods with the gait; ears prick up when the alarm rises
+      horse.position.y = opts.still ? 0 : Math.sin(shakeT * (opts.gallop ? 16 : 9)) * (opts.moving ? 0.035 : 0.006);
+      earL.rotation.z = earR.rotation.z = 0; earL.rotation.x = earR.rotation.x = -0.3 - fear * 0.5;
       lantern.position.set(x + lx * 0.3, EYE - 0.3, z + lz * 0.3);
       lanternTarget.position.set(x + lx * 12, 0, z + lz * 12);
       lantern.intensity = 70 * (0.92 + Math.random() * 0.08);
