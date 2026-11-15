@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, Share2, Zap } from 'lucide-react';
 import { GameFrame, Card, Debrief, useT, haptic, usePersist } from '../kit';
 import { generate, step, render, NIGHTS } from './percee/engine';
+import { createFP, drawMinimap } from './percee/fp3d';
 import './Percee.css';
 
 /*
@@ -126,6 +127,10 @@ export default function Percee() {
   const [joyVis, setJoyVis] = useState(null);
   const [horror, setHorror] = usePersist('percee-horror', true);
   const [intro, setIntro] = useState(false);
+  const [view, setView] = usePersist('percee-view', '3d');
+  const heading = useRef(0);
+  const look = useRef(null);
+  const mmRef = useRef(null);
 
   const startNight = useCallback((n) => {
     worldRef.current = generate(seed, n);
@@ -141,8 +146,15 @@ export default function Percee() {
   useEffect(() => {
     if (phase !== 'play') return undefined;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
     const colors = cssColors(wrapRef.current);
+    const is3d = view === '3d';
+    let fp = null; let ctx = null;
+    if (is3d) {
+      try { fp = createFP(canvas, worldRef.current, colors); } catch { setView('2d'); return undefined; }
+      const p0 = worldRef.current.player;
+      heading.current = Math.atan2(p0.y - worldRef.current.cy, p0.x - worldRef.current.cx);
+    } else ctx = canvas.getContext('2d');
+    const mm = is3d && mmRef.current ? mmRef.current.getContext('2d') : null;
     let raf = 0; let last = performance.now(); let visible = true;
     if (!audio.current) audio.current = makeAudio();
     const stopAmbient = horror && !muted ? audio.current.ambient() : () => {};
@@ -152,6 +164,7 @@ export default function Percee() {
     io.observe(canvas);
 
     const resize = () => {
+      if (fp) { fp.resize(); return; }
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       const w = canvas.clientWidth; const h = canvas.clientHeight;
       canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
@@ -172,9 +185,23 @@ export default function Percee() {
         input.current.y = (k.ArrowDown || k.s || k.S ? 1 : 0) - (k.ArrowUp || k.w || k.W || k.z || k.Z ? 1 : 0);
         input.current.sprint = !!k.Shift || input.current.sprintBtn;
       }
-      const events = step(w, input.current, dt);
-      const cw = canvas.clientWidth; const ch = canvas.clientHeight;
-      render(ctx, w, { width: cw, height: ch, scale: Math.max(cw / 720, ch / 520) }, colors, { horror, still });
+      let events;
+      if (fp) {
+        // first person: forward/back + turn (tank controls), joystick or keys
+        const k = keys.current;
+        const fwd = joy.current ? -(input.current.jy || 0) : (k.ArrowUp || k.w || k.W || k.z || k.Z ? 1 : 0) - (k.ArrowDown || k.s || k.S ? 1 : 0);
+        const turn = joy.current ? (input.current.jx || 0) : (k.ArrowRight || k.d || k.D ? 1 : 0) - (k.ArrowLeft || k.a || k.A || k.q || k.Q ? 1 : 0);
+        heading.current += turn * 2.3 * dt;
+        w.player.face = heading.current;
+        const sprint = !!k.Shift || !!input.current.sprintBtn;
+        events = step(w, { x: Math.cos(heading.current) * fwd, y: Math.sin(heading.current) * fwd, sprint, lockFace: true }, dt);
+        fp.render(dt, heading.current, { moving: Math.abs(fwd) > 0.1, gallop: sprint && Math.abs(fwd) > 0.1, still });
+        if (mm) drawMinimap(mm, w, heading.current, colors);
+      } else {
+        events = step(w, input.current, dt);
+        const cw = canvas.clientWidth; const ch = canvas.clientHeight;
+        render(ctx, w, { width: cw, height: ch, scale: Math.max(cw / 720, ch / 520) }, colors, { horror, still });
+      }
       if (horror && !muted) {
         if (w.time > nextHorn.current) { audio.current.carnyx(); nextHorn.current = w.time + 22 + Math.random() * 20; }
         if (w.nearest < 150 && now / 1000 - lastWhisper.current > 1.1 + Math.random()) {
@@ -211,8 +238,8 @@ export default function Percee() {
       });
     };
     raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(raf); io.disconnect(); ro.disconnect(); stopAmbient(); };
-  }, [phase, muted, horror]);
+    return () => { cancelAnimationFrame(raf); io.disconnect(); ro.disconnect(); stopAmbient(); fp?.dispose(); };
+  }, [phase, muted, horror, view]);
 
   // ── keyboard (only while the game area has focus; never leaks to the story's step keys) ──
   const onKeyDown = (e) => {
@@ -228,21 +255,25 @@ export default function Percee() {
   const onPointerDown = (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     canvasRef.current.focus({ preventScroll: true });
-    if (e.pointerType === 'mouse') return; // mouse users steer with the keyboard
-    e.currentTarget.setPointerCapture?.(e.pointerId);
+    if (e.pointerType === 'mouse') { if (view === '3d') look.current = e.clientX; return; } // mouse: keyboard steering, drag to look in 3D
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* synthetic pointer */ }
     joy.current = { x: e.clientX, y: e.clientY };
     setJoyVis({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, dx: 0, dy: 0 });
   };
   const onPointerMove = (e) => {
+    if (look.current !== null && e.pointerType === 'mouse') {
+      heading.current += (e.clientX - look.current) * 0.006; look.current = e.clientX; return;
+    }
     if (!joy.current) return;
     const dx = e.clientX - joy.current.x; const dy = e.clientY - joy.current.y;
     const r = 50;
     input.current.x = Math.max(-1, Math.min(1, dx / r));
     input.current.y = Math.max(-1, Math.min(1, dy / r));
+    input.current.jx = input.current.x; input.current.jy = input.current.y;
     input.current.sprint = !!input.current.sprintBtn;
     setJoyVis((j) => j && { ...j, dx: Math.max(-r, Math.min(r, dx)), dy: Math.max(-r, Math.min(r, dy)) });
   };
-  const onPointerUp = () => { joy.current = null; input.current.x = 0; input.current.y = 0; setJoyVis(null); };
+  const onPointerUp = () => { look.current = null; joy.current = null; input.current.x = 0; input.current.y = 0; input.current.jx = 0; input.current.jy = 0; setJoyVis(null); };
 
   // ── leaderboard (per device, per seed) ──
   const rows = (board[seed] || []).slice().sort((a, b) => b.nights - a.nights || a.time - b.time).slice(0, 8);
@@ -297,13 +328,17 @@ export default function Percee() {
               <li>{t({ fr: '■ Tours et patrouilles romaines : évitez leurs cônes de lumière.', en: '■ Roman towers and patrols: stay out of their torchlight.' })}</li>
               <li>{t({ fr: '⌇ Pièges cachés (« lis ») entre les lignes : ils vous immobilisent.', en: '⌇ Hidden traps (“lilies”) between the lines will stop you.' })}</li>
               <li>{t({ fr: 'Les forêts vous cachent, les rivières vous ralentissent, le galop fait du bruit.', en: 'Forests hide you, rivers slow you, galloping is loud.' })}</li>
-              <li>{t({ fr: 'Clavier : flèches / ZQSD / WASD, Maj = galop. Tactile : glissez le doigt, bouton galop.', en: 'Keyboard: arrows / WASD, Shift = gallop. Touch: drag your finger, gallop button.' })}</li>
+              <li>{t({ fr: 'Clavier : flèches / ZQSD (en 3D : avancer + tourner, glisser la souris pour regarder), Maj = galop. Tactile : glissez le doigt, bouton galop.', en: 'Keyboard: arrows / WASD (in 3D: forward + turn, drag the mouse to look), Shift = gallop. Touch: drag your finger, gallop button.' })}</li>
             </ul>
             <div className="pc-seed">
               <label htmlFor="pc-seed">{t({ fr: 'Code de la carte', en: 'Map seed' })}</label>
               <input id="pc-seed" value={seed} maxLength={24} onChange={(e) => setSeed(e.target.value.trim() || todaySeed())} spellCheck="false" autoComplete="off" />
               <button type="button" className="gf-btn" onClick={() => setSeed(todaySeed())}>{t({ fr: 'Carte du jour', en: 'Daily map' })}</button>
               <button type="button" className="gf-btn" onClick={() => setSeed(randomSeed())}>{t({ fr: 'Au hasard', en: 'Random' })}</button>
+            </div>
+            <div className="pc-view" role="group" aria-label={t({ fr: 'Vue', en: 'View' })}>
+              <button type="button" className={`gf-btn${view === '3d' ? ' is-on' : ''}`} aria-pressed={view === '3d'} onClick={() => setView('3d')}>{t({ fr: '1re personne 3D', en: 'First-person 3D' })}</button>
+              <button type="button" className={`gf-btn${view === '2d' ? ' is-on' : ''}`} aria-pressed={view === '2d'} onClick={() => setView('2d')}>{t({ fr: 'Carte 2D', en: '2D map' })}</button>
             </div>
             <label className="pc-toggle">
               <input type="checkbox" checked={horror} onChange={(e) => setHorror(e.target.checked)} />
@@ -328,6 +363,7 @@ export default function Percee() {
             </div>
             <div className="pc-canvas-wrap">
               <canvas
+                key={view}
                 ref={canvasRef}
                 className="pc-canvas"
                 tabIndex={0}
@@ -341,6 +377,12 @@ export default function Percee() {
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
               />
+              {view === '3d' && (
+                <>
+                  <span className={`pc-fx${horror ? ' is-horror' : ''}`} style={{ '--fear': hud.alarm / 100 }} aria-hidden="true" />
+                  <canvas ref={mmRef} className="pc-mm" width="150" height="103" aria-hidden="true" />
+                </>
+              )}
               {joyVis && (
                 <span className="pc-joy" style={{ left: joyVis.x, top: joyVis.y }} aria-hidden="true">
                   <span className="pc-joy-knob" style={{ transform: `translate(${joyVis.dx}px, ${joyVis.dy}px)` }} />

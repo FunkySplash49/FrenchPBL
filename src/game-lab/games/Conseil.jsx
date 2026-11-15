@@ -121,7 +121,7 @@ export default function Conseil() {
 
   const restart = () => { setM(START); setI(0); setNote(null); setEnding(null); setDx(0); setStarted(true); };
 
-  const onDown = (e) => { drag.current = { x: e.clientX }; e.currentTarget.setPointerCapture?.(e.pointerId); };
+  const onDown = (e) => { drag.current = { x: e.clientX }; try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* synthetic pointer */ } };
   const onMove = (e) => { if (drag.current) setDx(e.clientX - drag.current.x); };
   const onUp = () => {
     if (!drag.current) return;

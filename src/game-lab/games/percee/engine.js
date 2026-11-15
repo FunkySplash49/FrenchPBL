@@ -141,7 +141,7 @@ export function generate(seedStr, night) {
   }
 
   const startA = rnd() * TAU;
-  const player = { x: cx + Math.cos(startA) * 150, y: cy + Math.sin(startA) * 100, vx: 0, vy: 0, stam: 100, stun: 0, face: startA };
+  const player = { x: cx + Math.cos(startA) * 60, y: cy + Math.sin(startA) * 36, vx: 0, vy: 0, stam: 100, stun: 0, face: startA };
   const grass = [];
   for (let i = 0; i < 900; i++) grass.push([rnd() * WORLD.w, rnd() * WORLD.h, rnd()]);
 
@@ -193,7 +193,7 @@ export function step(w, input, dt) {
   if (p.stun > 0) { p.stun -= dt; speed *= 0.25; }
   const nx = Math.max(10, Math.min(WORLD.w - 10, p.x + ix * speed * dt));
   const ny = Math.max(10, Math.min(WORLD.h - 10, p.y + iy * speed * dt));
-  if (len > 0.15) p.face = Math.atan2(iy, ix);
+  if (len > 0.15 && !input.lockFace) p.face = Math.atan2(iy, ix);
   if (!blocked(w, p.x, p.y, nx, ny)) { p.x = nx; p.y = ny; }
   else if (!blocked(w, p.x, p.y, nx, p.y)) p.x = nx;
   else if (!blocked(w, p.x, p.y, p.x, ny)) p.y = ny;
@@ -210,7 +210,10 @@ export function step(w, input, dt) {
   // detection
   let seen = 0;
   const watchers = [...w.towers, ...w.patrols];
-  for (const o of watchers) {
+  // inside Alésia you are among your own: the town is a safe zone
+  const inTown = ((p.x - w.cx) / 160) ** 2 + ((p.y - w.cy) / 100) ** 2 < 1;
+  w.inTown = inTown;
+  for (const o of (inTown ? [] : watchers)) {
     const d = dist(p.x, p.y, o.x, o.y);
     if (d > o.range) continue;
     const a = Math.atan2(p.y - o.y, p.x - o.x);
@@ -221,7 +224,7 @@ export function step(w, input, dt) {
   // galloping is loud
   const noise = galloping ? 130 : 0;
   let heard = 0;
-  if (noise) for (const o of watchers) if (dist(p.x, p.y, o.x, o.y) < noise) heard = 1;
+  if (noise && !inTown) for (const o of watchers) if (dist(p.x, p.y, o.x, o.y) < noise) heard = 1;
   w.heard = heard;
   w.nearest = Math.min(...watchers.map((o) => dist(p.x, p.y, o.x, o.y)));
   w.seen = seen;
@@ -244,6 +247,7 @@ let lightCanvas = null;
 export function render(ctx, w, view, colors, opts = {}) {
   const { width: W, height: H } = view;
   const scale = view.scale;
+  if (!(W > 0 && H > 0 && scale > 0)) return; // canvas not laid out yet
   const p = w.player;
   const camX = Math.max(W / 2 / scale, Math.min(WORLD.w - W / 2 / scale, p.x));
   const camY = Math.max(H / 2 / scale, Math.min(WORLD.h - H / 2 / scale, p.y));
