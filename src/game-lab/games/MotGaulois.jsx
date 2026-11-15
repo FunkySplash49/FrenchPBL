@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Delete, CornerDownLeft } from 'lucide-react';
+import { Delete, CornerDownLeft, Share2, CalendarDays, Shuffle } from 'lucide-react';
 import { GameFrame, Card, Debrief, useT, haptic, rand } from '../kit';
 import './MotGaulois.css';
 
@@ -45,9 +45,16 @@ function score(guess, answer) {
 
 const RANK = { absent: 1, near: 2, hit: 3 };
 
+const dayIndex = () => {
+  const d = new Date(); const start = Date.UTC(2026, 0, 1);
+  return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - start) / 86400000);
+};
+
 export default function MotGaulois() {
   const t = useT();
-  const [round, setRound] = useState(() => rand(WORDS.length));
+  const [daily, setDaily] = useState(true);
+  const [round, setRound] = useState(() => dayIndex());
+  const [copied, setCopied] = useState(false);
   const target = WORDS[round % WORDS.length];
   const [guesses, setGuesses] = useState([]);
   const [current, setCurrent] = useState('');
@@ -94,11 +101,24 @@ export default function MotGaulois() {
   };
 
   const restart = () => {
+    setDaily(false); setCopied(false);
     setRound((r) => r + 1 + rand(WORDS.length - 1));
     setGuesses([]); setCurrent(''); setStarted(true);
   };
+  const playDaily = () => { setDaily(true); setCopied(false); setRound(dayIndex()); setGuesses([]); setCurrent(''); setStarted(true); };
 
-  useEffect(() => { setGuesses([]); setCurrent(''); }, [round]);
+  // Wordle-style result grid: 🟨 right place, 🟧 in the word, ⬛ absent (no green: green means Gaul here)
+  const share = async () => {
+    const grid = guesses.map((g) => score(g, target.w).map((s) => (s === 'hit' ? '🟨' : s === 'near' ? '🟧' : '⬛')).join('')).join('\n');
+    const head = `Le mot gaulois ${daily ? `#${dayIndex() + 1}` : ''} ${won ? guesses.length : 'X'}/${MAX}`;
+    const text = `${head}\n${grid}\n${window.location.href.split('?')[0]}?g=wordle`;
+    try {
+      if (navigator.share) await navigator.share({ text });
+      else { await navigator.clipboard.writeText(text); setCopied(true); }
+      haptic('light');
+    } catch { /* cancelled */ }
+  };
+
 
   const rows = Array.from({ length: MAX }, (_, r) => {
     if (r < guesses.length) return { letters: guesses[r].split(''), states: score(guesses[r], target.w) };
@@ -122,8 +142,6 @@ export default function MotGaulois() {
       {!started ? (
         <Card
           title={{ fr: 'Les Gaulois parlent encore', en: 'The Gauls still speak' }}
-          action={{ fr: 'Jouer', en: 'Play' }}
-          onAction={() => setStarted(true)}
         >
           <p>{t({ fr: 'Le français vient surtout du latin… mais une centaine de mots viennent du gaulois. Devinez le mot de 5 lettres en 6 essais.', en: 'French mostly comes from Latin… but about a hundred words come from Gaulish. Guess the 5-letter word in 6 tries.' })}</p>
           <p className="gf-simplified">
@@ -131,6 +149,10 @@ export default function MotGaulois() {
             <span className="mg-legend mg-near">B</span> {t({ fr: 'dans le mot', en: 'in the word' })}{'  '}
             <span className="mg-legend mg-absent">C</span> {t({ fr: 'absente', en: 'absent' })}
           </p>
+          <div className="gf-row">
+            <button type="button" className="btn-primary" onClick={playDaily}><CalendarDays size={16} aria-hidden="true" /> {t({ fr: 'Mot du jour', en: 'Word of the day' })}</button>
+            <button type="button" className="gf-btn" onClick={restart}><Shuffle size={16} aria-hidden="true" /> {t({ fr: 'Mot au hasard', en: 'Random word' })}</button>
+          </div>
         </Card>
       ) : (
         <div className="mg" tabIndex={0} onKeyDown={onKeyDown} aria-label={t({ fr: 'Grille : tapez au clavier ou utilisez les touches', en: 'Grid: type on your keyboard or use the keys' })}>
@@ -154,9 +176,12 @@ export default function MotGaulois() {
 
           {over ? (
             <Card tone={won ? 'is-win' : ''} title={won ? { fr: 'Bien joué !', en: 'Well done!' } : { fr: 'Le mot était…', en: 'The word was…' }}
-              action={{ fr: 'Nouveau mot', en: 'New word' }} onAction={restart}>
+              action={{ fr: 'Mot au hasard', en: 'Random word' }} onAction={restart}>
               <p className="mg-answer"><strong>{target.show}</strong> ← <em>{target.root}</em> {t({ fr: '(gaulois)', en: '(Gaulish)' })}</p>
               <p>{t({ fr: target.fr, en: target.en })}</p>
+              <div className="gf-row">
+                <button type="button" className="gf-btn" onClick={share}><Share2 size={16} aria-hidden="true" /> {copied ? t({ fr: 'Copié !', en: 'Copied!' }) : t({ fr: 'Partager mon résultat', en: 'Share my result' })}</button>
+              </div>
               <Debrief
                 source={{ fr: 'Étymologies : dictionnaires du CNRTL / Wiktionnaire (formes gauloises reconstruites, marquées *).', en: 'Etymologies: CNRTL / Wiktionary (reconstructed Gaulish forms, marked *).' }}
                 simplified={{ fr: 'les Gaulois n’écrivaient presque pas : beaucoup de ces racines sont reconstruites par les linguistes.', en: 'the Gauls wrote very little: many of these roots are reconstructed by linguists.' }}

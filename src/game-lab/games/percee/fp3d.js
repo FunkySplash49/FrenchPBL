@@ -25,7 +25,7 @@ export function createFP(canvas, w, colors) {
   const keep = (x) => { disposables.push(x); return x; };
 
   // moon + sky
-  scene.add(new THREE.HemisphereLight(0x6a7890, 0x120a06, 0.35));
+  const hemi = new THREE.HemisphereLight(0x6a7890, 0x120a06, 0.35); scene.add(hemi);
   const moon = new THREE.DirectionalLight(0x8fa3c0, 0.35); moon.position.set(-30, 40, -20); scene.add(moon);
   const starGeo = keep(new THREE.BufferGeometry());
   const stars = new Float32Array(900);
@@ -167,6 +167,30 @@ export function createFP(canvas, w, colors) {
   const halo = new THREE.PointLight(0xffc98a, 6, 6, 1.5);
   scene.add(lantern, halo);
 
+  // hidden Gaulish riders: a faint green glow in the woods
+  const riderMat = keep(flat(C(colors.gaul), { emissive: C(colors.gaul), emissiveIntensity: 0.6 }));
+  const riders = w.riders.map((r) => {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(keep(new THREE.ConeGeometry(0.45, 1.6, 6)), riderMat); body.position.y = 0.8;
+    const head = new THREE.Mesh(keep(new THREE.IcosahedronGeometry(0.22, 0)), riderMat); head.position.y = 1.8;
+    g.add(body, head); g.position.set(r.x * S, 0, r.y * S); scene.add(g);
+    return { r, g };
+  });
+
+  // rain: streaks that fall around the rider
+  let rain = null;
+  if (w.weather === 'rain') {
+    const N = 900; const pos = new Float32Array(N * 6);
+    for (let i = 0; i < N; i++) {
+      const x = (Math.random() - 0.5) * 40; const y = Math.random() * 14; const z = (Math.random() - 0.5) * 40;
+      pos.set([x, y, z, x - 0.05, y - 0.55, z], i * 6);
+    }
+    const geo = keep(new THREE.BufferGeometry()); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    rain = new THREE.LineSegments(geo, keep(new THREE.LineBasicMaterial({ color: 0xb8c4d0, transparent: true, opacity: 0.35 })));
+    scene.add(rain);
+  }
+  const baseFog = w.weather === 'fog' ? 0.09 : w.weather === 'rain' ? 0.065 : 0.05;
+
   // the horse you ride: neck, mane and ears at the bottom of the view (attached to the camera)
   const horse = new THREE.Group();
   const coat = keep(flat(0x3a2414)); const maneMat = keep(flat(0x140c07));
@@ -228,7 +252,22 @@ export function createFP(canvas, w, colors) {
           dummy.updateMatrix(); trapMesh.setMatrixAt(i, dummy.matrix); trapMesh.instanceMatrix.needsUpdate = true;
         }
       });
-      scene.fog.density = 0.05 + fear * 0.03;
+      scene.fog.density = baseFog + fear * 0.03;
+      riders.forEach(({ r, g }) => { g.visible = !r.rallied; });
+      if (rain) {
+        rain.position.set(x, 0, z);
+        const a = rain.geometry.attributes.position;
+        for (let i = 0; i < a.count; i += 2) {
+          let y0 = a.getY(i) - dt * 18;
+          if (y0 < 0) y0 += 14;
+          a.setY(i, y0); a.setY(i + 1, y0 - 0.55);
+        }
+        a.needsUpdate = true;
+      }
+      // lightning lights up the whole valley for an instant
+      hemi.intensity = 0.35 + w.flash * 2.6;
+      scene.fog.color.setRGB(0.016 + w.flash * 0.25, 0.012 + w.flash * 0.26, 0.008 + w.flash * 0.3);
+      scene.background.copy(scene.fog.color);
       renderer.render(scene, camera);
     },
     dispose() {

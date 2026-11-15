@@ -140,12 +140,22 @@ export function generate(seedStr, night) {
     }
   }
 
+  // weather from the seed: rain muffles hooves and dims torches, fog shortens every line of sight
+  const roll = rnd();
+  const weather = n === NIGHTS ? 'rain' : roll < 0.4 ? 'rain' : roll < 0.65 ? 'fog' : 'clear';
+  const sight = weather === 'rain' ? 0.85 : weather === 'fog' ? 0.75 : 1;
+  for (const t of towers) t.range *= sight;
+  for (const q of patrols) q.range *= sight;
+
+  // scattered Gaulish riders hiding in the woods, waiting to be rallied
+  const riders = forests.filter((f) => f.length).slice(0, 3).map((blobs) => ({ x: blobs[0].x, y: blobs[0].y, rallied: false }));
+
   const startA = rnd() * TAU;
   const player = { x: cx + Math.cos(startA) * 60, y: cy + Math.sin(startA) * 36, vx: 0, vy: 0, stam: 100, stun: 0, face: startA };
   const grass = [];
   for (let i = 0; i < 900; i++) grass.push([rnd() * WORLD.w, rnd() * WORLD.h, rnd()]);
 
-  return { seed: seedStr, night: n, cx, cy, inner, outer, towers, patrols, forests, rivers, traps, player, grass, alarm: 0, time: 0, state: 'play', heard: 0 };
+  return { seed: seedStr, night: n, cx, cy, inner, outer, towers, patrols, forests, rivers, traps, player, grass, weather, riders, alarm: 0, time: 0, state: 'play', heard: 0, flash: 0 };
 }
 
 /* ── simulation ────────────────────────────────────────────────── */
@@ -207,6 +217,16 @@ export function step(w, input, dt) {
     }
   }
 
+  // rally hidden riders
+  for (const r of w.riders) {
+    if (!r.rallied && dist(p.x, p.y, r.x, r.y) < 22) { r.rallied = true; ev.push({ type: 'rally' }); }
+  }
+  // storm
+  if (w.weather === 'rain') {
+    w.flash = Math.max(0, w.flash - dt * 2.5);
+    if (Math.random() < dt * 0.06) { w.flash = 1; ev.push({ type: 'thunder' }); }
+  }
+
   // detection
   let seen = 0;
   const watchers = [...w.towers, ...w.patrols];
@@ -222,7 +242,7 @@ export function step(w, input, dt) {
     seen = Math.max(seen, 1 - d / o.range + 0.35);
   }
   // galloping is loud
-  const noise = galloping ? 130 : 0;
+  const noise = galloping ? (w.weather === 'rain' ? 80 : 130) : 0;
   let heard = 0;
   if (noise && !inTown) for (const o of watchers) if (dist(p.x, p.y, o.x, o.y) < noise) heard = 1;
   w.heard = heard;
@@ -311,6 +331,16 @@ export function render(ctx, w, view, colors, opts = {}) {
   for (const t of w.towers) { ctx.fillStyle = colors.rome; ctx.fillRect(t.x - 7, t.y - 7, 14, 14); ctx.strokeStyle = colors.romeLight; ctx.lineWidth = 1.5; ctx.strokeRect(t.x - 7, t.y - 7, 14, 14); }
   for (const q of w.patrols) { ctx.fillStyle = colors.romeLight; ctx.fillRect(q.x - 4, q.y - 4, 8, 8); }
 
+  // hidden riders (only when close), and your rallied riders trailing behind you
+  for (const r of w.riders) {
+    if (r.rallied || dist(p.x, p.y, r.x, r.y) > 90) continue;
+    ctx.strokeStyle = colors.gaul; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(r.x, r.y, 6, 0, TAU); ctx.stroke();
+  }
+  w.riders.filter((r) => r.rallied).forEach((_, i) => {
+    const bx = p.x - Math.cos(p.face || 0) * (14 + i * 11); const by = p.y - Math.sin(p.face || 0) * (14 + i * 11);
+    ctx.fillStyle = colors.gaul; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(bx, by, 5, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+  });
+
   // the rider (Gaul = circle)
   ctx.fillStyle = colors.gaul;
   ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, TAU); ctx.fill();
@@ -347,6 +377,18 @@ export function render(ctx, w, view, colors, opts = {}) {
   hole(w.cx, w.cy, 150, 0.45);
   ctx.drawImage(lightCanvas, 0, 0);
 
+  if (w.weather === 'rain') {
+    ctx.strokeStyle = 'rgba(200,210,220,0.18)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < 90; i++) {
+      const rx = (Math.random() * W); const ry = (Math.random() * H);
+      ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 12);
+    }
+    ctx.stroke();
+    if (w.flash > 0) { ctx.fillStyle = `rgba(220,230,255,${w.flash * 0.35})`; ctx.fillRect(0, 0, W, H); }
+  } else if (w.weather === 'fog') {
+    ctx.fillStyle = 'rgba(120,110,100,0.12)'; ctx.fillRect(0, 0, W, H);
+  }
   if (opts.horror) horrorPass(ctx, w, W, H, opts);
 
   // alarm vignette

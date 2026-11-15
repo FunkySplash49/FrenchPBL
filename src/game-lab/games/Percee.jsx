@@ -88,6 +88,38 @@ function makeAudio() {
         src.start(t0);
       } catch { /* no audio */ }
     },
+    thunder() {
+      try {
+        const t0 = ctx.currentTime; const len = 2.6;
+        const buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate); const d = buf.getChannelData(0); let last = 0;
+        for (let i = 0; i < d.length; i++) { last = (last + 0.04 * (Math.random() * 2 - 1)) / 1.04; d[i] = last * 6 * Math.exp(-i / (ctx.sampleRate * 0.9)); }
+        const src = ctx.createBufferSource(); src.buffer = buf;
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260;
+        const g = ctx.createGain(); g.gain.value = 0.5;
+        src.connect(lp).connect(g).connect(ctx.destination); src.start(t0 + 0.25);
+      } catch { /* no audio */ }
+    },
+    hoof(gallop) {
+      try {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const t0 = ctx.currentTime; const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.type = 'triangle'; o.frequency.setValueAtTime(gallop ? 150 : 120, t0); o.frequency.exponentialRampToValueAtTime(60, t0 + 0.06);
+        g.gain.setValueAtTime(gallop ? 0.09 : 0.05, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08);
+        o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0 + 0.09);
+      } catch { /* no audio */ }
+    },
+    chime() {
+      try {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const t0 = ctx.currentTime;
+        [392, 523].forEach((f, i) => {
+          const o = ctx.createOscillator(); const g = ctx.createGain(); o.type = 'sine'; o.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, t0 + i * 0.12); g.gain.exponentialRampToValueAtTime(0.1, t0 + i * 0.12 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.12 + 0.5);
+          o.connect(g).connect(ctx.destination); o.start(t0 + i * 0.12); o.stop(t0 + i * 0.12 + 0.55);
+        });
+      } catch { /* no audio */ }
+    },
     sting() {
       try {
         if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -111,13 +143,15 @@ export default function Percee() {
   const audio = useRef(null);
   const lastBeat = useRef(0);
   const totalRef = useRef(0);
+  const ridersRef = useRef(0);
+  const lastHoof = useRef({ t: 0, x: 0, y: 0 });
   const nextHorn = useRef(8);
   const lastWhisper = useRef(0);
 
   const [phase, setPhase] = useState('menu'); // menu | play | between | over
   const [seed, setSeed] = useState(() => readUrlSeed() || todaySeed());
   const [night, setNight] = useState(1);
-  const [hud, setHud] = useState({ alarm: 0, stam: 100, time: 0, seen: false });
+  const [hud, setHud] = useState({ alarm: 0, stam: 100, time: 0, seen: false, riders: 0 });
   const [totalTime, setTotalTime] = useState(0);
   const [result, setResult] = useState(null); // { nights, time, won }
   const [muted, setMuted] = usePersist('percee-muted', false);
@@ -141,7 +175,7 @@ export default function Percee() {
     haptic('tick');
   }, [seed]);
 
-  const newRun = () => { totalRef.current = 0; setTotalTime(0); setResult(null); setSaved(false); startNight(1); };
+  const newRun = () => { totalRef.current = 0; ridersRef.current = 0; setTotalTime(0); setResult(null); setSaved(false); startNight(1); };
 
   // ── game loop ─────────────────────────────────────────────────
   useEffect(() => {
@@ -215,27 +249,35 @@ export default function Percee() {
         const interval = 1.1 - (w.alarm / 100) * 0.75;
         if (now / 1000 - lastBeat.current > interval) { lastBeat.current = now / 1000; audio.current.beat(w.alarm / 100); }
       }
+      // hoofbeats, faster at a gallop
+      const pl = w.player; const lh = lastHoof.current;
+      const moved = Math.hypot(pl.x - lh.x, pl.y - lh.y) / Math.max(dt, 0.001);
+      lh.x = pl.x; lh.y = pl.y;
+      if (!muted && moved > 40 && now / 1000 - lh.t > (moved > 160 ? 0.19 : 0.38)) { lh.t = now / 1000; audio.current.hoof(moved > 160); }
       for (const e of events) {
         if (e.type === 'trap') haptic('miss');
+        if (e.type === 'rally') { haptic('success'); if (!muted) audio.current.chime(); }
+        if (e.type === 'thunder' && !muted) audio.current.thunder();
+        if (e.type === 'caught' || e.type === 'escaped') ridersRef.current += w.riders.filter((r) => r.rallied).length;
         if (e.type === 'caught') {
           if (!muted) audio.current.sting();
           haptic('miss');
           totalRef.current += w.time;
           setTotalTime(totalRef.current);
-          setResult({ nights: w.night - 1, time: totalRef.current, won: false });
+          setResult({ nights: w.night - 1, time: totalRef.current, won: false, riders: ridersRef.current });
           setPhase('over');
         }
         if (e.type === 'escaped') {
           haptic('success');
           totalRef.current += w.time;
           setTotalTime(totalRef.current);
-          if (w.night >= NIGHTS) { setResult({ nights: NIGHTS, time: totalRef.current, won: true }); setPhase('over'); }
+          if (w.night >= NIGHTS) { setResult({ nights: NIGHTS, time: totalRef.current, won: true, riders: ridersRef.current }); setPhase('over'); }
           else setPhase('between');
         }
       }
       setHud((h) => {
-        const n = { alarm: w.alarm, stam: w.player.stam, time: w.time, seen: w.seen > 0 };
-        return Math.abs(h.alarm - n.alarm) > 0.5 || Math.abs(h.stam - n.stam) > 1 || Math.floor(h.time) !== Math.floor(n.time) || h.seen !== n.seen ? n : h;
+        const n = { alarm: w.alarm, stam: w.player.stam, time: w.time, seen: w.seen > 0, riders: ridersRef.current + w.riders.filter((r) => r.rallied).length, weather: w.weather };
+        return Math.abs(h.alarm - n.alarm) > 0.5 || Math.abs(h.stam - n.stam) > 1 || Math.floor(h.time) !== Math.floor(n.time) || h.seen !== n.seen || h.riders !== n.riders || h.weather !== n.weather ? n : h;
       });
     };
     raf = requestAnimationFrame(frame);
@@ -277,9 +319,9 @@ export default function Percee() {
   const onPointerUp = () => { look.current = null; joy.current = null; input.current.x = 0; input.current.y = 0; input.current.jx = 0; input.current.jy = 0; setJoyVis(null); };
 
   // ── leaderboard (per device, per seed) ──
-  const rows = (board[seed] || []).slice().sort((a, b) => b.nights - a.nights || a.time - b.time).slice(0, 8);
+  const rows = (board[seed] || []).slice().sort((a, b) => b.nights - a.nights || (b.riders || 0) - (a.riders || 0) || a.time - b.time).slice(0, 8);
   const saveScore = () => {
-    const entry = { name: (name || 'Anonyme').slice(0, 14), nights: result.nights, time: Math.round(result.time), at: Date.now() };
+    const entry = { name: (name || 'Anonyme').slice(0, 14), nights: result.nights, riders: result.riders || 0, time: Math.round(result.time), at: Date.now() };
     setBoard((b) => ({ ...b, [seed]: [...(b[seed] || []), entry] }));
     setSaved(true); haptic('success');
   };
@@ -298,7 +340,7 @@ export default function Percee() {
       {rows.length ? (
         <ol>
           {rows.map((r, i) => (
-            <li key={r.at}><span>{i + 1}. {r.name}</span><span>{r.nights}/{NIGHTS} {t({ fr: 'nuits', en: 'nights' })} · {fmt(r.time)}</span></li>
+            <li key={r.at}><span>{i + 1}. {r.name}</span><span>{r.nights}/{NIGHTS} {t({ fr: 'nuits', en: 'nights' })} · ● {r.riders || 0} · {fmt(r.time)}</span></li>
           ))}
         </ol>
       ) : <p className="gf-simplified">{t({ fr: 'Aucun score pour ce code. Soyez le premier.', en: 'No scores for this seed yet. Be the first.' })}</p>}
@@ -329,6 +371,7 @@ export default function Percee() {
               <li>{t({ fr: '■ Tours et patrouilles romaines : évitez leurs cônes de lumière.', en: '■ Roman towers and patrols: stay out of their torchlight.' })}</li>
               <li>{t({ fr: '⌇ Pièges cachés (« lis ») entre les lignes : ils vous immobilisent.', en: '⌇ Hidden traps (“lilies”) between the lines will stop you.' })}</li>
               <li>{t({ fr: 'Les forêts vous cachent, les rivières vous ralentissent, le galop fait du bruit.', en: 'Forests hide you, rivers slow you, galloping is loud.' })}</li>
+              <li>{t({ fr: '● Des cavaliers gaulois se cachent dans les bois : ralliez-les. La pluie couvre vos sabots, le brouillard aveugle tout le monde.', en: '● Gaulish riders hide in the woods: rally them. Rain muffles your hooves, fog blinds everyone.' })}</li>
               <li>{t({ fr: 'Clavier : flèches / ZQSD (en 3D : avancer + tourner, glisser la souris pour regarder), Maj = galop. Tactile : glissez le doigt, bouton galop.', en: 'Keyboard: arrows / WASD (in 3D: forward + turn, drag the mouse to look), Shift = gallop. Touch: drag your finger, gallop button.' })}</li>
             </ul>
             <div className="pc-seed">
@@ -360,7 +403,10 @@ export default function Percee() {
                 <span>{t({ fr: 'Souffle', en: 'Stamina' })}</span>
                 <span className="pc-bar"><span style={{ transform: `scaleX(${hud.stam / 100})` }} /></span>
               </div>
-              <span className="pc-time">{fmt(totalTime + (phase === 'play' ? hud.time : 0))}</span>
+              <span className="pc-time">
+                {hud.weather === 'rain' ? '☂ ' : hud.weather === 'fog' ? '≋ ' : '☾ '}
+                <span title={t({ fr: 'Cavaliers ralliés', en: 'Riders rallied' })}>● {hud.riders}</span> · {fmt(totalTime + (phase === 'play' ? hud.time : 0))}
+              </span>
             </div>
             <div className="pc-canvas-wrap">
               <canvas
