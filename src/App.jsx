@@ -1,0 +1,80 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { LangProvider } from './lib/lang';
+import { BEATS } from './data/beats';
+import { ScrollTrigger, prefersReduced } from './lib/motion';
+import Backdrop from './components/Backdrop';
+import TopBar from './components/TopBar';
+import Hero from './components/Hero';
+import Beat from './components/Beat';
+import Outro from './components/Outro';
+import BeatRail from './components/BeatRail';
+
+const LAST = 13; // 0 = title, 1–12 = beats, 13 = sources
+
+function skyFor(i) {
+  if (i <= 0) return 'gold';
+  if (i >= LAST) return 'afterglow';
+  return BEATS[i - 1].sky;
+}
+
+/* Keys that should not be hijacked when the reader is inside a control. */
+function isInteractive(el) {
+  return !!el?.closest?.('button, a, input, textarea, select, [role="tab"], .term');
+}
+
+export default function App() {
+  const [active, setActive] = useState(0);
+  const activeRef = useRef(0);
+  activeRef.current = active;
+
+  const onActive = useCallback((i) => setActive(i), []);
+
+  const goTo = useCallback((i) => {
+    const target = Math.max(0, Math.min(LAST, i));
+    const el = document.getElementById(`beat-${target}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth', block: 'start' });
+    el.focus({ preventScroll: true });
+    setActive(target);
+  }, []);
+
+  // Presenter keys (brief: "one scroll or key-press (→ / Space)")
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const inside = isInteractive(e.target);
+      if (e.key === 'ArrowRight' && !inside) { e.preventDefault(); goTo(activeRef.current + 1); }
+      else if (e.key === 'ArrowLeft' && !inside) { e.preventDefault(); goTo(activeRef.current - 1); }
+      else if (e.key === ' ' && !inside) { e.preventDefault(); goTo(activeRef.current + (e.shiftKey ? -1 : 1)); }
+      else if (e.key === 'Home' && !inside) { e.preventDefault(); goTo(0); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [goTo]);
+
+  // Re-measure scroll scenes whenever the story's height changes
+  // (web fonts settling, language switch, the game result opening…).
+  const storyRef = useRef(null);
+  useEffect(() => {
+    let t;
+    const refresh = () => { clearTimeout(t); t = setTimeout(() => ScrollTrigger.refresh(), 150); };
+    document.fonts?.ready.then(refresh);
+    const ro = new ResizeObserver(refresh);
+    if (storyRef.current) ro.observe(storyRef.current);
+    return () => { clearTimeout(t); ro.disconnect(); };
+  }, []);
+
+  return (
+    <LangProvider>
+      <a href="#beat-1" className="skip-link">Aller au récit</a>
+      <Backdrop sky={skyFor(active)} />
+      <TopBar onHome={() => goTo(0)} />
+      <main className="story" ref={storyRef}>
+        <Hero onActive={onActive} onStart={() => goTo(1)} />
+        {BEATS.map((b) => <Beat key={b.n} beat={b} onActive={onActive} />)}
+        <Outro onActive={onActive} onTop={() => goTo(0)} />
+      </main>
+      <BeatRail active={active} onJump={goTo} />
+    </LangProvider>
+  );
+}
