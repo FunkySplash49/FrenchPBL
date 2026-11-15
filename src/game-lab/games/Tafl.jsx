@@ -19,8 +19,9 @@ function cssColor(el, name) { return new THREE.Color(getComputedStyle(el).getPro
 function buildScene(host) {
   const col = (n) => cssColor(host, n);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-  renderer.shadowMap.enabled = true;
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  renderer.setPixelRatio(Math.min(coarse ? 1.5 : 2, window.devicePixelRatio || 1));
+  renderer.shadowMap.enabled = !coarse; // soft shadows on desktop only
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   host.appendChild(renderer.domElement);

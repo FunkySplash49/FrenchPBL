@@ -11,7 +11,8 @@ const EYE = 2.3; // a rider on horseback
 
 export function createFP(canvas, w, colors) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(1.75, window.devicePixelRatio || 1));
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  renderer.setPixelRatio(Math.min(coarse ? 1.25 : 1.75, window.devicePixelRatio || 1));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x040302);

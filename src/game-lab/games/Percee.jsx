@@ -134,6 +134,7 @@ export default function Percee() {
 
   const startNight = useCallback((n) => {
     worldRef.current = generate(seed, n);
+    if (import.meta.env.DEV) window.__percee = worldRef; // test hook, dev only
     setNight(n);
     setPhase('play');
     setIntro(true);
