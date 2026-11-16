@@ -606,13 +606,14 @@ html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
    Picture previews (components/ui/LinkPreview)
    ════════════════════════════════════════════════════════════════ */
 .lp-link {
-  color: inherit; text-decoration: underline; text-decoration-thickness: 1px;
-  text-decoration-color: var(--text-muted); text-underline-offset: 4px;
-  transition: text-decoration-color var(--dur-fast) var(--ease-out);
+  /* words that open their own page: ember orange, so they read as "go deeper" */
+  color: var(--ember-400); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px;
+  text-decoration-color: rgb(238 138 69 / 0.5); text-underline-offset: 4px;
+  transition: color var(--dur-fast) var(--ease-out), text-decoration-color var(--dur-fast) var(--ease-out);
 }
 .lp-link.is-italic { font-style: italic; }
-.lp-link:hover { text-decoration-color: var(--accent); }
-.lp-arrow { font-size: 0.7em; margin-left: 2px; color: var(--text-muted); vertical-align: 0.35em; font-style: normal; }
+.lp-link:hover, .lp-link:focus-visible { color: var(--amber-300); text-decoration-color: var(--amber-300); }
+.lp-arrow { font-size: 0.7em; margin-left: 2px; color: var(--ember-400); vertical-align: 0.35em; font-style: normal; }
 .lp-content { z-index: var(--z-loader); transform-origin: var(--radix-hover-card-content-transform-origin); }
 .lp-card {
   width: 252px; padding: 6px; border-radius: var(--radius-md);
