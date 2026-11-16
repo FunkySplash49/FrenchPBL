@@ -35,22 +35,22 @@ float pattern(vec2 uv, float t) {
   ${shape === 'wave' ? `
   // a slow rolling horizon line with a soft glow above and below it
   float line = uHorizon
-    + 0.06 * sin(x * 2.3 + t * 0.55)
-    + 0.035 * sin(x * 5.1 - t * 0.8 + 1.7)
-    + 0.015 * sin(x * 11.0 + t * 1.3);
+    + 0.022 * sin(x * 1.7 + t * 0.45)
+    + 0.010 * sin(x * 4.3 - t * 0.6 + 1.7);
   float d = uv.y - line;
-  float glow = d > 0.0 ? exp(-d * 4.2) : exp(d * 9.0) * 0.55;
+  float glow = d > 0.0 ? exp(-d * 9.0) : exp(d * 14.0) * 0.35;
   // faint bands rolling through the lit part, like heat over a field
   float bands = 0.5 + 0.5 * sin(uv.y * 26.0 - t * 1.1 + sin(x * 3.0 + t * 0.4) * 1.6);
-  return clamp(glow * (0.78 + 0.22 * bands) * uLift, 0.0, 1.0);` : `
+  return clamp(glow * (0.9 + 0.1 * bands) * uLift, 0.0, 1.0);` : `
   return clamp((0.5 + 0.5 * sin(x * 8.0 + t)) * (1.0 - uv.y) * uLift, 0.0, 1.0);`}
 }
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uRes;
-  float v = pattern(uv, uTime);
+  // cut the faintest level so the dark sky is clean, not a grid of stray single dots
+  float v = max(0.0, pattern(uv, uTime) - 0.06) / 0.94;
   float threshold = ${type === '2x2' ? 'bayer2(gl_FragCoord.xy)' : type === '4x4' ? 'bayer4(gl_FragCoord.xy)' : 'bayer8(gl_FragCoord.xy)'};
-  float on = step(threshold, v * 0.999);
+  float on = v > threshold ? 1.0 : 0.0; // strict: v = 0 never lights a dot
   gl_FragColor = vec4(mix(uBack, uFront, on), 1.0);
 }`;
 
@@ -109,8 +109,12 @@ export function DitheringShader({
     const resize = () => {
       const w = Math.max(1, Math.round(canvas.clientWidth / pxSize));
       const h = Math.max(1, Math.round(canvas.clientHeight / pxSize));
-      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; gl.viewport(0, 0, w, h); }
-      gl.uniform2f(u.uRes, w, h);
+      // mobile address bar showing/hiding changes the height a little while scrolling:
+      // re-allocating the canvas then flickers, so ignore small height-only changes
+      const small = canvas.width === w && Math.abs(canvas.height - h) * pxSize < 160;
+      if (!small && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.uniform2f(u.uRes, canvas.width, canvas.height);
     };
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
@@ -121,7 +125,10 @@ export function DitheringShader({
     let t = 0; let last = performance.now(); let raf = 0;
 
     const ease = (a, b, k) => a + (b - a) * k;
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
     const frame = (now) => {
+      // phones: 30 fps is plenty for a slow drift and leaves room for scrolling
+      if (coarse && now - last < 30) { raf = requestAnimationFrame(frame); return; }
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const tg = target.current;
       const k = reduce ? 1 : 1 - Math.exp(-dt * 1.6); // ~1.5 s to settle on a new sky (instant if reduced)

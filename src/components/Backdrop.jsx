@@ -11,12 +11,12 @@ export const SKIES = ['gold', 'amber', 'ember', 'dusk', 'night', 'afterglow'];
 
 /* front colour · how much of the field is lit · height of the glowing line */
 const LIGHT = {
-  gold:      { front: '#EE8A45', lift: 1.0,  horizon: 0.34 }, // --ember-400
-  amber:     { front: '#E27236', lift: 0.92, horizon: 0.3 },
-  ember:     { front: '#D9652A', lift: 0.84, horizon: 0.26 }, // --ember-500
-  dusk:      { front: '#B04A1F', lift: 0.74, horizon: 0.21 },
-  night:     { front: '#7A3416', lift: 0.62, horizon: 0.15 }, // --clay-600
-  afterglow: { front: '#D9652A', lift: 0.8,  horizon: 0.22 },
+  gold:      { front: '#C9612A', lift: 0.7,  horizon: 0.2 },
+  amber:     { front: '#B9552A', lift: 0.64, horizon: 0.18 },
+  ember:     { front: '#A84A22', lift: 0.58, horizon: 0.16 },
+  dusk:      { front: '#8E3E1B', lift: 0.5,  horizon: 0.13 },
+  night:     { front: '#7A3416', lift: 0.42, horizon: 0.1 },  // --clay-600
+  afterglow: { front: '#A84A22', lift: 0.55, horizon: 0.14 },
 };
 
 export default function Backdrop({ sky = 'gold' }) {

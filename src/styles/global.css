@@ -41,7 +41,8 @@ kbd {
 }
 
 /* ── Backdrop ─────────────────────────────────────────────────── */
-.backdrop { position: fixed; inset: 0; z-index: var(--z-backdrop); overflow: hidden; pointer-events: none; }
+/* sized to the *largest* viewport so the mobile address bar never resizes it mid-scroll */
+.backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100lvh; z-index: var(--z-backdrop); overflow: hidden; pointer-events: none; }
 /* dithered ember wave (components/ui/dithering-shader), rendered at 1/3 size, scaled up crisp */
 .dither { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
 .backdrop-dither { position: absolute; inset: 0; background: var(--ink-950); }
@@ -714,3 +715,10 @@ html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
 }
 
 .lab-cta { display: inline-flex; align-items: center; justify-self: start; text-decoration: none; }
+
+/* touch screens: no live blur over the animated backdrop (it re-blurs every frame while scrolling) */
+@media (pointer: coarse) {
+  .panel, .viz { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .panel { background: rgb(42 26 16 / 0.93); }
+  .viz { background: rgb(28 17 10 / 0.94); }
+}
