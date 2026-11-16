@@ -1,5 +1,10 @@
 import { CrtScenes } from './ui/crt-scenes';
 import { SCENES } from '../data/scenes';
+import { TOPIC_SCENES } from '../data/topicScenes';
+
+// story steps 0–13, then one scene per topic page (#/sujet/<id>)
+const TOPIC_IDS = Object.keys(TOPIC_SCENES);
+const ALL_SCENES = [...SCENES, ...TOPIC_IDS.map((id) => TOPIC_SCENES[id])];
 
 /*
  * Fixed backdrop behind the whole story (z-backdrop): one 19th-century history painting
@@ -9,12 +14,17 @@ import { SCENES } from '../data/scenes';
  * frosts the picture behind them, with a haze so text stays readable); the title has its
  * own local scrim (.hero-inner).
  */
-export default function Backdrop({ step = 0 }) {
+export default function Backdrop({ step = 0, topic = null }) {
+  // a key word's page shows its own picture: the backdrop switches to it with the same
+  // pixel-by-pixel old-TV transition as scrolling between steps (and back on close)
+  const t = topic ? TOPIC_IDS.indexOf(topic) : -1;
+  const index = t >= 0 ? SCENES.length + t : step;
   return (
     <div className="backdrop" aria-hidden="true">
       <CrtScenes
-        scenes={SCENES}
-        index={step}
+        scenes={ALL_SCENES}
+        index={index}
+        warmCount={SCENES.length}
         className="backdrop-crt"
         /* left text cards become liquid glass (refraction + haze drawn by the shader);
            the right-side boxes damp the picture around them and bleed their light into it */

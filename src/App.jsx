@@ -121,7 +121,7 @@ export default function App() {
     <LazyMotion features={domAnimation}>
     <LangProvider>
       <a href="#beat-1" className="skip-link">Aller au récit</a>
-      <Backdrop step={active} />
+      <Backdrop step={active} topic={topic} />
       <TopBar onHome={() => goTo(0)} />
       <main className="story" ref={storyRef}>
         <Hero onActive={onActive} onStart={() => goTo(1)} />

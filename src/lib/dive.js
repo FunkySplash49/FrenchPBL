@@ -1,7 +1,8 @@
 /*
  * The "camera" move between the story and a topic page.
  *  diveIn:  pull back a little (winding up), then plunge into the clicked word —
- *           the story scales past the camera, blurs and fades out.
+ *           the story scales past the camera, blurs and fades out. The painted backdrop stays:
+ *           it switches to the topic's picture with its own old-TV transition (Backdrop).
  *  diveOut: the reverse — the story comes back from behind the camera and settles.
  * Works on the live story DOM with the browser's own Web Animations (no animation library
  * on the first load); end states are committed as inline styles, and every inline style is
@@ -56,15 +57,14 @@ export function diveIn(origin, onPlunge) {
 
   const wind = [
     run(story, [{ transform: 'scale(1)', filter: 'blur(0px)' }, { transform: 'scale(0.9)', filter: 'blur(0px)' }], { duration: WIND, easing: EASE_WIND }),
-    sky && run(sky, [{ transform: 'scale(1)' }, { transform: 'scale(0.96)' }], { duration: WIND, easing: EASE_WIND }),
     ...chrome.map((el) => run(el, [{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: WIND * 0.6 })),
   ].filter(Boolean);
 
   diving = Promise.all(wind).then(() => {
+    document.documentElement.classList.add('is-plunging'); // glass cards off (crt-scenes)
     onPlunge?.();
     const dive = [
       run(story, [{ transform: 'scale(0.9)', opacity: 1, filter: 'blur(0px)' }, { transform: 'scale(7)', opacity: 0, filter: 'blur(10px)' }], { duration: PLUNGE, easing: EASE_PLUNGE }),
-      sky && run(sky, [{ transform: 'scale(0.96)', opacity: 1 }, { transform: 'scale(1.6)', opacity: 0 }], { duration: PLUNGE, easing: EASE_PLUNGE }),
     ].filter(Boolean);
     return Promise.all(dive);
   }).then(() => { story.style.visibility = 'hidden'; });
@@ -87,13 +87,13 @@ function doDiveOut(reduce) {
       el.style.transform = ''; el.style.opacity = ''; el.style.filter = '';
       el.style.transformOrigin = ''; el.style.willChange = ''; el.style.visibility = '';
     }
-    document.documentElement.classList.remove('is-diving');
+    document.documentElement.classList.remove('is-diving', 'is-plunging');
   };
   if (reduce || !story.style.transform) { clear(); return; }
   story.style.visibility = '';
+  document.documentElement.classList.remove('is-plunging');
   Promise.all([
     run(story, [{ transform: 'scale(2.4)', opacity: 0, filter: 'blur(8px)' }, { transform: 'scale(1)', opacity: 1, filter: 'blur(0px)' }], { duration: 800, easing: EASE_BACK }),
-    sky && run(sky, [{ transform: 'scale(1.25)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 800, easing: EASE_BACK }),
     ...chrome.map((el) => run(el, [{ opacity: getComputedStyle(el).opacity }, { opacity: 1 }], { duration: 400, delay: 400 })),
   ]).then(clear);
 }

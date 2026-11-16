@@ -8,7 +8,6 @@ import { closeTopic, takeOrigin } from '../../lib/topic';
 import { diveIn, diveOut } from '../../lib/dive';
 import { haptic } from '../../lib/haptics';
 import TopicTunnel from './TopicTunnel';
-import TvSwitch from './TvSwitch';
 import './topic.css';
 
 /*
@@ -60,7 +59,6 @@ export default function TopicView({ id }) {
   const [origin] = useState(() => takeOrigin());
   const [phase, setPhase] = useState(reduce ? 'page' : origin ? 'dive' : 'flight');
   const [zoom, setZoom] = useState(null);
-  const [tvSwitch, setTvSwitch] = useState(() => !reduce && !!origin);
   const progress = useMotionValue(0);
   const stream = useRef(null);
 
@@ -144,16 +142,16 @@ export default function TopicView({ id }) {
       exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6, filter: 'blur(6px)', transition: { duration: 0.45, ease: [0.64, 0, 0.78, 0] } }}
       onPointerDown={intro ? toPage : undefined}
     >
-      {/* the dark of the "inside": as the camera plunges into the word it arrives pixel by
-          pixel through static (TvSwitch, the backdrop's channel change), then stays */}
+      {/* behind the page: the story's painted CRT backdrop, which switches to this topic's
+          picture with the same pixel-by-pixel channel change as scrolling (components/Backdrop).
+          A light shade on top keeps the title and pictures readable. */}
       <motion.div
         className="tv-void"
         aria-hidden="true"
-        initial={{ opacity: tvSwitch ? 0 : 1 }}
-        animate={{ opacity: tvSwitch ? 0 : 1 }}
-        transition={{ duration: 0 }}
+        initial={{ opacity: origin && !reduce ? 0 : 1 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: origin && !reduce ? 0.7 : 0, duration: 0.6 }}
       />
-      {tvSwitch && <TvSwitch delay={0.7} duration={0.85} onDone={() => setTvSwitch(false)} />}
 
       <div className="tv-scroll" ref={scrollRef}>
         <section className="tv-hero">

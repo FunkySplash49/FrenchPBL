@@ -300,7 +300,7 @@ const srcOf = (s) => (typeof s === 'string' ? s : s.src);
 /**
  * scenes: [{ src, focus?: [x, y] (0–1, what to keep in view when cropped), exposure? }] or [src]
  */
-export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, maxPixels = 2.2e6, glassSelector = '', glowSelector = '', className = '' }) {
+export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, maxPixels = 2.2e6, glassSelector = '', glowSelector = '', warmCount = Infinity, className = '' }) {
   const ref = useRef(null);
   const want = useRef(index);
   want.current = Math.max(0, Math.min(scenes.length - 1, index));
@@ -388,6 +388,9 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
         if (kind === 0 && n === 0) boxR = (parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14) * kx;
         n += 1;
       };
+      // story plunging into a topic page or hidden behind it: no glass / glow boxes
+      const away = document.documentElement.classList.contains('is-plunging') || storyEl?.style.visibility === 'hidden';
+      if (away) { boxN = 0; const k = 'away'; if (k === boxKey) return false; boxKey = k; return true; }
       if (glassSelector) document.querySelectorAll(glassSelector).forEach((el) => add(el, 0));
       if (glowSelector) document.querySelectorAll(glowSelector).forEach((el) => add(el, 1));
       boxN = n;
@@ -467,7 +470,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       if (warmed) return; warmed = true;
       let i = 0;
       const next = () => {
-        if (dead || i >= scenes.length) return;
+        if (dead || i >= Math.min(scenes.length, warmCount)) return;
         const img = new Image();
         img.onload = img.onerror = () => setTimeout(next, 60);
         img.src = srcOf(scenes[i++]);
