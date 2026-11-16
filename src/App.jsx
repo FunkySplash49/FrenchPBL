@@ -9,7 +9,9 @@ import Beat from './components/Beat';
 import Outro from './components/Outro';
 import BeatRail from './components/BeatRail';
 import { haptic } from './lib/haptics';
-import { AnimatePresence } from 'framer-motion';
+// LazyMotion + `m` components: the main page loads framer-motion's small core + DOM-animation
+// features only; the topic page (lazy chunk) brings the rest when it is needed.
+import { AnimatePresence, LazyMotion, domAnimation } from 'framer-motion';
 import { useTopicRoute } from './lib/topic';
 import { loadTopicView } from './lib/topic';
 
@@ -116,6 +118,7 @@ export default function App() {
   }, []);
 
   return (
+    <LazyMotion features={domAnimation}>
     <LangProvider>
       <a href="#beat-1" className="skip-link">Aller au récit</a>
       <Backdrop step={active} />
@@ -128,5 +131,6 @@ export default function App() {
       <BeatRail active={active} onJump={goTo} />
       <Suspense fallback={null}><AnimatePresence>{topic && <TopicView key={topic} id={topic} />}</AnimatePresence></Suspense>
     </LangProvider>
+    </LazyMotion>
   );
 }

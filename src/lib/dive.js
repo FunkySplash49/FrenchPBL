@@ -1,14 +1,17 @@
-import { animate } from 'framer-motion';
-
 /*
  * The "camera" move between the story and a topic page.
  *  diveIn:  pull back a little (winding up), then plunge into the clicked word —
  *           the story scales past the camera, blurs and fades out.
  *  diveOut: the reverse — the story comes back from behind the camera and settles.
- * Works on the live story DOM; every inline style is cleared when the story is back.
+ * Works on the live story DOM with the browser's own Web Animations (no animation library
+ * on the first load); end states are committed as inline styles, and every inline style is
+ * cleared when the story is back.
  */
-const WIND = 0.6;   // s, pull back
-const PLUNGE = 0.7; // s, dive
+const WIND = 600;   // ms, pull back
+const PLUNGE = 700; // ms, dive
+const EASE_WIND = 'cubic-bezier(0.33, 1, 0.68, 1)';
+const EASE_PLUNGE = 'cubic-bezier(0.7, 0, 0.84, 0)';
+const EASE_BACK = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
 const layers = () => ({
   story: document.querySelector('.story'),
@@ -17,6 +20,15 @@ const layers = () => ({
   chrome: [document.querySelector('.topbar'), document.querySelector('.rail'),
     ...document.querySelectorAll('[data-radix-popper-content-wrapper]')].filter(Boolean),
 });
+
+// run a WAAPI animation and keep its end state as inline style (like a tweening library would)
+function run(el, frames, opts) {
+  const a = el.animate(frames, { ...opts, fill: 'forwards' });
+  return a.finished.then(() => {
+    try { a.commitStyles(); } catch { /* element gone */ }
+    a.cancel();
+  }, () => {});
+}
 
 let saved = null;
 
@@ -31,21 +43,22 @@ export function diveIn(origin, onPlunge) {
   saved = { ox: (o.x - r.left) / z, oy: (o.y - r.top) / z, sx: o.x, sy: o.y };
   story.style.transformOrigin = `${saved.ox}px ${saved.oy}px`;
   story.style.willChange = 'transform, opacity, filter';
+  story.style.transform = 'scale(1)'; // marks "moving" for the backdrop's glass tracking
   if (sky) sky.style.transformOrigin = `${o.x / z}px ${o.y / z}px`;
 
   const wind = [
-    animate(story, { scale: 0.9, filter: 'blur(0px)' }, { duration: WIND, ease: [0.33, 1, 0.68, 1] }),
-    sky && animate(sky, { scale: 0.96 }, { duration: WIND, ease: [0.33, 1, 0.68, 1] }),
-    ...chrome.map((el) => animate(el, { opacity: 0 }, { duration: WIND * 0.6 })),
+    run(story, [{ transform: 'scale(1)', filter: 'blur(0px)' }, { transform: 'scale(0.9)', filter: 'blur(0px)' }], { duration: WIND, easing: EASE_WIND }),
+    sky && run(sky, [{ transform: 'scale(1)' }, { transform: 'scale(0.96)' }], { duration: WIND, easing: EASE_WIND }),
+    ...chrome.map((el) => run(el, [{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: WIND * 0.6 })),
   ].filter(Boolean);
 
-  return Promise.all(wind.map((a) => a.finished)).then(() => {
+  return Promise.all(wind).then(() => {
     onPlunge?.();
     const dive = [
-      animate(story, { scale: 7, opacity: 0, filter: 'blur(10px)' }, { duration: PLUNGE, ease: [0.7, 0, 0.84, 0] }),
-      sky && animate(sky, { scale: 1.6, opacity: 0 }, { duration: PLUNGE, ease: [0.7, 0, 0.84, 0] }),
+      run(story, [{ transform: 'scale(0.9)', opacity: 1, filter: 'blur(0px)' }, { transform: 'scale(7)', opacity: 0, filter: 'blur(10px)' }], { duration: PLUNGE, easing: EASE_PLUNGE }),
+      sky && run(sky, [{ transform: 'scale(0.96)', opacity: 1 }, { transform: 'scale(1.6)', opacity: 0 }], { duration: PLUNGE, easing: EASE_PLUNGE }),
     ].filter(Boolean);
-    return Promise.all(dive.map((a) => a.finished));
+    return Promise.all(dive);
   }).then(() => { story.style.visibility = 'hidden'; });
 }
 
@@ -55,16 +68,16 @@ export function diveOut(reduce) {
   const clear = () => {
     for (const el of [story, sky, ...chrome]) {
       if (!el) continue;
+      el.getAnimations().forEach((a) => a.cancel());
       el.style.transform = ''; el.style.opacity = ''; el.style.filter = '';
       el.style.transformOrigin = ''; el.style.willChange = ''; el.style.visibility = '';
     }
   };
   if (reduce || !story.style.transform) { clear(); return; }
   story.style.visibility = '';
-  const ease = [0.16, 1, 0.3, 1];
   Promise.all([
-    animate(story, { scale: [2.4, 1], opacity: [0, 1], filter: ['blur(8px)', 'blur(0px)'] }, { duration: 0.8, ease }).finished,
-    sky && animate(sky, { scale: [1.25, 1], opacity: [0, 1] }, { duration: 0.8, ease }).finished,
-    ...chrome.map((el) => animate(el, { opacity: 1 }, { duration: 0.4, delay: 0.4 }).finished),
+    run(story, [{ transform: 'scale(2.4)', opacity: 0, filter: 'blur(8px)' }, { transform: 'scale(1)', opacity: 1, filter: 'blur(0px)' }], { duration: 800, easing: EASE_BACK }),
+    sky && run(sky, [{ transform: 'scale(1.25)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 800, easing: EASE_BACK }),
+    ...chrome.map((el) => run(el, [{ opacity: getComputedStyle(el).opacity }, { opacity: 1 }], { duration: 400, delay: 400 })),
   ]).then(clear);
 }

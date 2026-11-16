@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import * as HoverCard from '@radix-ui/react-hover-card';
-import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, m, useMotionValue, useSpring, useReducedMotion } from 'framer-motion';
 import { PREVIEWS } from '../../data/previews';
 import { useLang, pick } from '../../lib/lang';
 import { haptic } from '../../lib/haptics';
@@ -99,7 +99,7 @@ export function LinkPreview({ id, children }) {
         >
           <AnimatePresence>
             {open && (
-              <motion.div
+              <m.div
                 className="lp-card"
                 initial={reduce ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.6 }}
                 animate={reduce
@@ -132,7 +132,7 @@ export function LinkPreview({ id, children }) {
                 <a className="lp-credit" href={p.file} target="_blank" rel="noreferrer">
                   {lang === 'en' ? 'Image: Wikimedia Commons' : 'Image : Wikimedia Commons'}
                 </a>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </HoverCard.Content>

@@ -423,7 +423,9 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
 
     // small render targets for the glow
     const targets = [0, 1, 2].map(() => ({ t: mkTex(gl.LINEAR, gl.CLAMP_TO_EDGE), f: gl.createFramebuffer(), w: 0, h: 0 }));
+    let bloomStale = true; // the glow is cached between draws (see the loop)
     const sizeTargets = (w, h) => {
+      bloomStale = true;
       for (const g of targets) {
         if (g.w === w && g.h === h) continue;
         g.w = w; g.h = h;
@@ -436,7 +438,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     };
 
     // scene textures: uploaded on demand, a handful kept on the GPU (TV / phone memory)
-    const KEEP = coarse ? 5 : 7;
+    const KEEP = coarse ? 4 : 7; // ~8 MB each on the GPU: phones / TVs keep current ± 1 and one more
     const maxTex = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048, coarse ? 1600 : 2048);
     const tex = new Map(); // i -> { t, w, h }
     const loading = new Set();
@@ -496,6 +498,18 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     let settled = a; let seen = a; let seenAt = performance.now();
     let t = 0; let last = performance.now(); let raf = 0;
     let seed = [0, 0]; let seedAt = 0; let drawnAt = 0;
+    let bloomAt = -1e9;
+    // the glow (bright pass + 4 blurs = 5 of the 6 passes) depends only on the paintings and
+    // their sub-pixel drift, at 1/4 resolution and blurred: refreshed ~8×/s when idle it is
+    // indistinguishable, and recomputed every frame during a switch or fade-in
+    const BLOOM_MS = 125;
+    let boxesStale = true; let boxesAt = -1e9;
+    const storyEl = document.querySelector('.story');
+    const markStale = () => { boxesStale = true; };
+    window.addEventListener('scroll', markStale, { passive: true, capture: true });
+    window.addEventListener('resize', markStale, { passive: true });
+    const layoutRO = new ResizeObserver(markStale);
+    layoutRO.observe(document.body);
     const IDLE_MS = 32;
 
     const fit = (i) => {
@@ -551,12 +565,17 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
         if (settled === b) mix += step;
         else if (settled === a) mix -= step;      // went back: run it backwards
         else mix += step * 2.5;                    // somewhere else: finish fast, then chain
-        if (mix >= 1) { a = b; mix = 0; switching = false; }
-        else if (mix <= 0) { b = a; mix = 0; switching = false; }
+        if (mix >= 1) { a = b; mix = 0; switching = false; bloomStale = true; }
+        else if (mix <= 0) { b = a; mix = 0; switching = false; bloomStale = true; }
         dirty = true;
       }
       if (tex.has(a) && fade < 1) { fade = Math.min(1, fade + dt / 0.7); dirty = true; }
-      if (readBoxes()) dirty = true; // a card or box moved (scroll, resize): draw now
+      // card / box rects: re-read only when they can have moved — scroll, resize, layout
+      // change, or while the topic dive transforms the story (and every 0.5 s as a safety net)
+      if (boxesStale || storyEl?.style.transform || now - boxesAt > 500) {
+        boxesStale = false; boxesAt = now;
+        if (readBoxes()) dirty = true; // moved: draw now
+      }
 
       // hidden behind a topic page (lib/dive.js fades the backdrop out): draw nothing
       const host = canvas.parentElement;
@@ -571,8 +590,10 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       const k = switching ? mix * mix * (3 - 2 * mix) : 0;
       if (now - seedAt > 40) { seedAt = now; seed = [Math.floor(Math.random() * 256) / 256, Math.floor(Math.random() * 256) / 256]; }
 
-      // 1. highlights → target 0 (1/4 res)
+      // 1. highlights → target 0 (1/4 res) — skipped while the cached glow is fresh
       const [g0, g1, g2] = targets;
+      if (switching || fade < 1 || reduce || bloomStale || now - bloomAt > BLOOM_MS) {
+      bloomStale = false; bloomAt = now;
       gl.viewport(0, 0, g0.w, g0.h);
       gl.useProgram(bright.p);
       gl.bindFramebuffer(gl.FRAMEBUFFER, g0.f);
@@ -583,6 +604,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       gl.useProgram(blur.p);
       blurPass(g0, g1, 1, 0); blurPass(g1, g0, 0, 1);
       blurPass(g0, g1, 3.2, 0); blurPass(g1, g2, 0, 3.2);
+      }
       // 3. the screen
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -620,6 +642,9 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     return () => {
       dead = true;
       document.documentElement.classList.remove('has-glass');
+      window.removeEventListener('scroll', markStale, { capture: true });
+      window.removeEventListener('resize', markStale);
+      layoutRO.disconnect();
       cancelAnimationFrame(raf); ro.disconnect(); stopFallback?.();
       document.removeEventListener('visibilitychange', onVis);
       canvas.removeEventListener('webglcontextlost', onLost);

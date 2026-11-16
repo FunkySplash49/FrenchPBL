@@ -3,6 +3,9 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
+// phones: the address bar showing / hiding resizes the viewport while scrolling; don't
+// recompute every trigger for that (GSAP docs). Real resizes / rotations still refresh.
+ScrollTrigger.config({ ignoreMobileResize: true });
 
 /* Motion tokens — DESIGN.md §4.1 (GSAP equivalents of the CSS vars). */
 export const DUR = { instant: 0.1, fast: 0.2, base: 0.4, slow: 0.8, cinematic: 1.6 };
