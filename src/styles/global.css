@@ -872,3 +872,7 @@ html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
 .fx-hatch { opacity: 0.6; pointer-events: none; }
 .fx-hatch-rome { stroke: var(--rome-400); stroke-width: 0.8; }
 .fx-hatch-gaul { stroke: var(--gaul-400); stroke-width: 0.8; }
+
+/* during the topic dive (lib/dive.js): sections already off-screen aren't painted, so the
+   story's blur/scale only processes what can be seen */
+.is-diving .story > section.is-offscreen { visibility: hidden; }

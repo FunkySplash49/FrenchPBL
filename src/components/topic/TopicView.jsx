@@ -102,13 +102,18 @@ export default function TopicView({ id }) {
     if (phase === 'page') backRef.current?.focus({ preventScroll: true });
   }, [phase]);
 
-  // lock the page behind; put the story back (in reverse) when leaving
+  // lock the page behind; put the story back (in reverse) when leaving.
+  // Runs once per open: `reduce` resolves a moment after mount (null → false), and making it a
+  // dependency re-ran this effect mid-dive — the cleanup started the reverse animation while the
+  // dive was starting, so the zoom aimed at a distorted position (it looked like a scroll jump).
+  const reduceRef = useRef(reduce);
+  reduceRef.current = reduce;
   useEffect(() => {
     const html = document.documentElement;
     const before = html.style.overflow;
     html.style.overflow = 'hidden';
-    return () => { html.style.overflow = before; diveOut(reduce); };
-  }, [reduce]);
+    return () => { html.style.overflow = before; diveOut(reduceRef.current); };
+  }, []);
 
   // keys: skip the intro / close / keep the story's presenter keys quiet underneath
   useEffect(() => {

@@ -31,8 +31,13 @@ function run(el, frames, opts) {
 }
 
 let saved = null;
+let diving = null;   // the dive in progress (promise), so a repeat call reuses it
+let pendingOut = 0;  // a deferred dive-out, cancelled if the dive restarts right away
 
 export function diveIn(origin, onPlunge) {
+  // a dive-out scheduled a moment ago (React re-mounting the page in development) is cancelled,
+  // and the dive already under way simply continues
+  if (pendingOut) { clearTimeout(pendingOut); pendingOut = 0; if (diving) return diving; } // its onPlunge still fires on time
   const { story, sky, chrome } = layers();
   if (!story) { onPlunge?.(); return Promise.resolve(); }
   const o = origin ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
@@ -44,6 +49,9 @@ export function diveIn(origin, onPlunge) {
   story.style.transformOrigin = `${saved.ox}px ${saved.oy}px`;
   story.style.willChange = 'transform, opacity, filter';
   story.style.transform = 'scale(1)'; // marks "moving" for the backdrop's glass tracking
+  // off-screen sections aren't painted during the dive: the blur only processes what is visible
+  // (the story is ~14 000 px tall)
+  document.documentElement.classList.add('is-diving');
   if (sky) sky.style.transformOrigin = `${o.x / z}px ${o.y / z}px`;
 
   const wind = [
@@ -52,7 +60,7 @@ export function diveIn(origin, onPlunge) {
     ...chrome.map((el) => run(el, [{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: WIND * 0.6 })),
   ].filter(Boolean);
 
-  return Promise.all(wind).then(() => {
+  diving = Promise.all(wind).then(() => {
     onPlunge?.();
     const dive = [
       run(story, [{ transform: 'scale(0.9)', opacity: 1, filter: 'blur(0px)' }, { transform: 'scale(7)', opacity: 0, filter: 'blur(10px)' }], { duration: PLUNGE, easing: EASE_PLUNGE }),
@@ -60,9 +68,16 @@ export function diveIn(origin, onPlunge) {
     ].filter(Boolean);
     return Promise.all(dive);
   }).then(() => { story.style.visibility = 'hidden'; });
+  return diving;
 }
 
 export function diveOut(reduce) {
+  // deferred one tick: if the page is re-mounted at once (dev double-mount), diveIn cancels this
+  clearTimeout(pendingOut);
+  pendingOut = setTimeout(() => { pendingOut = 0; diving = null; doDiveOut(reduce); }, 0);
+}
+
+function doDiveOut(reduce) {
   const { story, sky, chrome } = layers();
   if (!story) return;
   const clear = () => {
@@ -72,6 +87,7 @@ export function diveOut(reduce) {
       el.style.transform = ''; el.style.opacity = ''; el.style.filter = '';
       el.style.transformOrigin = ''; el.style.willChange = ''; el.style.visibility = '';
     }
+    document.documentElement.classList.remove('is-diving');
   };
   if (reduce || !story.style.transform) { clear(); return; }
   story.style.visibility = '';
