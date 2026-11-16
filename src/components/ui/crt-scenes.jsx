@@ -163,7 +163,7 @@ void main() {
   }
 
   // boxes: glass cards bend the picture; lit boxes dim around themselves and glow
-  float glass = 0.0; float rim = 0.0; vec2 guv = uv;
+  float glass = 0.0; float rim = 0.0; vec2 guv = uv; vec2 gdisp = vec2(0.0); float gx = 1.0;
   float dim = 0.0; vec3 glow = vec3(0.0);
   for (int i = 0; i < 8; i++) {
     if (i >= uBoxN) break;
@@ -173,15 +173,28 @@ void main() {
     float d = sdBox(q, b, uBoxR);
     if (uBoxKind[i] < 0.5) {
       if (d < 0.0) {
-        // lens: near the rim the glass pulls the picture in from outside its edge
-        // (the bend), and the middle is gently magnified
-        float depth = clamp(-d / (34.0 * uPx), 0.0, 1.0);
-        float bend = (1.0 - depth) * (1.0 - depth);
-        vec2 n = q / max(b, vec2(1.0));
-        vec2 off = n * bend * 26.0 * uPx - q * 0.05;
-        guv = (px + off) / uRes;
+        // Liquid-glass lens (community recreations of Apple's look, e.g. kube.io / liquidGL):
+        // a convex SQUIRCLE edge profile y = (1-(1-x)^4)^(1/4) over a bevel ~15% of the
+        // card's shorter side; the light bends by the profile's slope (Snell, n≈1.5), so the
+        // picture is pulled in from just outside the edge; the middle stays flat.
+        float bevel = clamp(0.15 * 2.0 * min(b.x, b.y), 18.0 * uPx, 64.0 * uPx);
+        float x = clamp(-d / bevel, 0.0, 1.0);           // 0 at the edge → 1 on the flat
+        float o = 1.0 - x;
+        float slope = min(o * o * o * pow(max(1.0 - o * o * o * o, 1e-3), -0.75), 6.0);
+        float bend = slope / sqrt(1.0 + slope * slope);  // sin of the surface tilt
+        // outward normal of the rounded rect
+        vec2 qq = abs(q) - b + uBoxR;
+        vec2 nrm = (qq.x > 0.0 && qq.y > 0.0) ? normalize(qq) : (qq.x > qq.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0));
+        nrm *= sign(q + 1e-4);
+        gdisp = nrm * bend * bevel * 0.55;
+        guv = (px + gdisp) / uRes;
+        gx = x;
         glass = smoothstep(0.0, 1.5 * uPx, -d);
-        rim = 1.0 - smoothstep(0.0, 4.0 * uPx, -d);
+        // specular rim: lit from the top-left, a fainter catch-light on the opposite edge
+        vec2 L = normalize(vec2(-0.55, -0.83));
+        float lit = max(dot(nrm, L), 0.0); float back = max(dot(nrm, -L), 0.0);
+        float edge = pow(o, 7.0);
+        rim = edge * (0.25 + 0.95 * lit * lit + 0.35 * back * back);
       }
     } else if (d > 0.0) {
       dim = max(dim, exp(-d / (240.0 * uPx)));
@@ -196,7 +209,16 @@ void main() {
     vec3 blurred = (soft(guv + e, which) + soft(guv - e, which)
                   + soft(guv + vec2(e.x, -e.y), which) + soft(guv + vec2(-e.x, e.y), which)
                   + soft(guv + vec2(e.x * 1.8, 0.0), which) + soft(guv - vec2(e.x * 1.8, 0.0), which)) / 6.0;
-    vec3 inGlass = mix(scene(guv, which), blurred, 0.72);
+    vec3 sharp = scene(guv, which);
+    // chromatic dispersion only on the bevel (≈1–2 px of R/B split), none on the flat
+    if (gx < 0.999) {
+      vec2 split = gdisp * 0.07 + normalize(gdisp + 1e-4) * (1.0 - gx) * 1.2 * uPx;
+      sharp.r = soft((px + gdisp + split) / uRes, which).r;
+      sharp.b = soft((px + gdisp - split) / uRes, which).b;
+    }
+    vec3 inGlass = mix(sharp, blurred, 0.72);
+    // a little extra saturation behind glass (Apple's lit-through look)
+    inGlass = mix(vec3(dot(inGlass, LUM)), inGlass, 1.22);
     col = mix(col, inGlass, glass);
   }
 
@@ -227,7 +249,7 @@ void main() {
   // (thicker over bright parts of the painting, so text contrast holds everywhere)
   float lg = clamp(dot(col, LUM), 0.0, 1.0);
   col = mix(col, col * 0.5 + vec3(0.050, 0.034, 0.024), (0.5 + 0.38 * lg) * glass);
-  col += rim * glass * vec3(0.30, 0.24, 0.17);
+  col += rim * glass * vec3(0.42, 0.34, 0.25);
 
   // tube vignette; the very top stays calmer for the top bar
   vec2 v = suv - 0.5;
