@@ -42,7 +42,7 @@ kbd {
 
 /* ── Backdrop ─────────────────────────────────────────────────── */
 /* sized to the *largest* viewport so the mobile address bar never resizes it mid-scroll */
-.backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100lvh; z-index: var(--z-backdrop); overflow: hidden; pointer-events: none; }
+.backdrop { position: fixed; top: 0; left: 0; width: 100%; height: calc(100vh / var(--z, 1)); height: calc(100lvh / var(--z, 1)); z-index: var(--z-backdrop); overflow: hidden; pointer-events: none; }
 /* old-TV scenes (components/ui/crt-scenes) */
 .crt { display: block; width: 100%; height: 100%; }
 .backdrop-crt { position: absolute; inset: 0; background: var(--ink-950); }
@@ -114,7 +114,7 @@ kbd {
 
 /* ── Hero ─────────────────────────────────────────────────────── */
 .hero {
-  position: relative; min-height: 100svh;
+  position: relative; min-height: calc(100svh / var(--z, 1));
   display: grid; place-items: center; text-align: center;
   padding: var(--topbar-h) var(--gutter) var(--rail-h);
 }
@@ -123,7 +123,7 @@ kbd {
    masked out over the centre so a ring never sits under a letter. */
 .hero-rings {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: max(1100px, 118vw); max-width: 1700px; pointer-events: none;
+  width: max(1100px, calc(118vw / var(--z, 1))); max-width: 1700px; pointer-events: none;
   -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, transparent 46%, #000 66%);
           mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, transparent 46%, #000 66%);
 }
@@ -176,7 +176,7 @@ kbd {
 
 /* ── Beat ─────────────────────────────────────────────────────── */
 .beat {
-  min-height: 100svh;
+  min-height: calc(100svh / var(--z, 1));
   max-width: 1320px; margin: 0 auto;
   display: grid; grid-template-columns: minmax(0, 34rem) minmax(0, 1fr);
   gap: var(--space-7); align-items: center;
@@ -240,7 +240,7 @@ kbd {
 }
 .viz svg:not(.lucide):not(.medallion):not(.locator) { width: 100%; height: auto; }
 .lucide { flex: none; }
-.map-svg { aspect-ratio: 400 / 420; max-height: 68vh; }
+.map-svg { aspect-ratio: 400 / 420; max-height: calc(68vh / var(--z, 1)); }
 .plan-svg { aspect-ratio: 600 / 440; }
 .viz-title {
   font-family: var(--font-display); font-size: var(--text-eyebrow); font-weight: 600;
@@ -446,7 +446,7 @@ kbd {
 .question-text { font-size: var(--text-2xl); line-height: 1.3; font-weight: 500; }
 
 /* ── Outro ────────────────────────────────────────────────────── */
-.outro { min-height: 100svh; display: grid; align-items: center; padding: calc(var(--topbar-h) + var(--space-7)) var(--gutter) calc(var(--rail-h) + var(--space-8)); }
+.outro { min-height: calc(100svh / var(--z, 1)); display: grid; align-items: center; padding: calc(var(--topbar-h) + var(--space-7)) var(--gutter) calc(var(--rail-h) + var(--space-8)); }
 .outro-inner { max-width: 1000px; margin: 0 auto; padding: var(--space-6); display: grid; gap: var(--space-6); }
 .outro-title { font-family: var(--font-display); font-size: var(--text-3xl); font-weight: 600; letter-spacing: 0.03em; }
 .caveat { max-width: var(--measure); color: var(--text-muted); }

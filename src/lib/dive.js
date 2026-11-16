@@ -24,12 +24,14 @@ export function diveIn(origin, onPlunge) {
   const { story, sky, chrome } = layers();
   if (!story) { onPlunge?.(); return Promise.resolve(); }
   const o = origin ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  // on-screen px → the elements' own CSS px (the page is CSS-zoomed on 4K screens)
+  const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
   // origin in the story's own coordinates (it scrolls with the page)
   const r = story.getBoundingClientRect();
-  saved = { ox: o.x - r.left, oy: o.y - r.top, sx: o.x, sy: o.y };
+  saved = { ox: (o.x - r.left) / z, oy: (o.y - r.top) / z, sx: o.x, sy: o.y };
   story.style.transformOrigin = `${saved.ox}px ${saved.oy}px`;
   story.style.willChange = 'transform, opacity, filter';
-  if (sky) sky.style.transformOrigin = `${o.x}px ${o.y}px`;
+  if (sky) sky.style.transformOrigin = `${o.x / z}px ${o.y / z}px`;
 
   const wind = [
     animate(story, { scale: 0.9, filter: 'blur(0px)' }, { duration: WIND, ease: [0.33, 1, 0.68, 1] }),

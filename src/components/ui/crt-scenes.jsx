@@ -369,7 +369,10 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     };
     const readBoxes = () => {
       if (!glassSelector && !glowSelector) return false;
-      const cw = canvas.clientWidth; const ch = canvas.clientHeight;
+      // on-screen size of the canvas (getBoundingClientRect), so card rects and the canvas are in
+      // the same units even when the page is CSS-zoomed (4K screens)
+      const cr = canvas.getBoundingClientRect();
+      const cw = cr.width; const ch = cr.height;
       if (!cw || !ch) return false;
       const kx = canvas.width / cw; const ky = canvas.height / ch;
       let n = 0; let key = '';
@@ -377,7 +380,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
         if (n >= 8) return;
         const b = el.getBoundingClientRect();
         if (b.width < 2 || b.bottom < -300 || b.top > ch + 300) return;
-        boxData[n * 4] = b.left * kx; boxData[n * 4 + 1] = b.top * ky;
+        boxData[n * 4] = (b.left - cr.left) * kx; boxData[n * 4 + 1] = (b.top - cr.top) * ky;
         boxData[n * 4 + 2] = b.width * kx; boxData[n * 4 + 3] = b.height * ky;
         boxKind[n] = kind;
         boxCol.set(kind ? glowOf(el) : [0, 0, 0], n * 3);
@@ -597,7 +600,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       gl.uniform3fv(final.u.uBoxCol, boxCol);
       gl.uniform1i(final.u.uBoxN, boxN);
       gl.uniform1f(final.u.uBoxR, boxR);
-      gl.uniform1f(final.u.uPx, canvas.width / Math.max(1, canvas.clientWidth));
+      gl.uniform1f(final.u.uPx, canvas.width / Math.max(1, canvas.getBoundingClientRect().width));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
     raf = requestAnimationFrame(frame);

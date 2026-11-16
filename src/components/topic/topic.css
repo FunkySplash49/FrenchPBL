@@ -29,7 +29,7 @@
 .tv-btn:focus-visible, .tv-read:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 
 /* ── hero: tunnel + title ── */
-.tv-hero { position: relative; height: 100svh; display: grid; place-items: center; overflow: hidden; }
+.tv-hero { position: relative; height: calc(100svh / var(--z, 1)); display: grid; place-items: center; overflow: hidden; }
 .tt-stage { position: absolute; inset: 0; overflow: hidden; transform-style: preserve-3d; }
 .tt-grain {
   position: absolute; inset: 0; pointer-events: none; opacity: 0.55;
@@ -38,8 +38,8 @@
   -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, #000 55%, transparent 100%);
 }
 .tt-ring { position: absolute; left: 50%; top: 50%; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); }
-.tt-ring-a { width: 48vmin; height: 48vmin; border: 1px solid rgb(226 176 74 / 0.18); }
-.tt-ring-b { width: 76vmin; height: 76vmin; border: 1px dashed rgb(247 236 214 / 0.1); }
+.tt-ring-a { width: calc(48vmin / var(--z, 1)); height: calc(48vmin / var(--z, 1)); border: 1px solid rgb(226 176 74 / 0.18); }
+.tt-ring-b { width: calc(76vmin / var(--z, 1)); height: calc(76vmin / var(--z, 1)); border: 1px dashed rgb(247 236 214 / 0.1); }
 .tt-space { position: absolute; inset: 0; transform-style: preserve-3d; }
 .tt-card {
   position: absolute; left: 50%; top: 50%; aspect-ratio: 4 / 5; padding: 0;
@@ -90,7 +90,7 @@
   background: var(--ink-950);
 }
 /* full-bleed dark band without making the page wider (a 100vw pseudo-element let it scroll sideways) */
-.tv-article { box-shadow: 0 0 0 100vmax var(--ink-950); clip-path: inset(0 -100vmax); }
+.tv-article { box-shadow: 0 0 0 calc(100vmax / var(--z, 1)) var(--ink-950); clip-path: inset(0 -100vmax); }
 .tv-facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-3); }
 .tv-fact { padding: var(--space-3) var(--space-4); border-left: 2px solid var(--accent); background: rgb(42 26 16 / 0.7); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .tv-fact dt { font-family: var(--font-display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); }
@@ -116,8 +116,8 @@
 
 /* ── picture viewer ── */
 .tv-zoom { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: var(--space-4); background: rgb(18 10 6 / 0.94); cursor: zoom-out; }
-.tv-zoom figure { margin: 0; max-width: min(92vw, 1100px); display: grid; gap: var(--space-2); justify-items: center; cursor: default; }
-.tv-zoom img { max-width: 100%; max-height: 74svh; object-fit: contain; border-radius: var(--radius-sm); }
+.tv-zoom figure { margin: 0; max-width: min(calc(92vw / var(--z, 1)), 1100px); display: grid; gap: var(--space-2); justify-items: center; cursor: default; }
+.tv-zoom img { max-width: 100%; max-height: calc(74svh / var(--z, 1)); object-fit: contain; border-radius: var(--radius-sm); }
 .tv-zoom figcaption { color: var(--text-muted); font-size: var(--text-sm); text-align: center; }
 .tv-zoom-nav { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); }
 
