@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import Phrase from './Phrase';
 import { useLang, pick } from '../lib/lang';
 import { useScene, gsap, ScrollTrigger, DUR, EASE } from '../lib/motion';
-import { PARTS, PRESENTERS, BEATS } from '../data/beats';
+import { PARTS } from '../data/beats';
 import GaulMap from '../visuals/GaulMap';
 import { CaesarCard, VercingetorixCard } from '../visuals/Cards';
 import RhineBritain from '../visuals/RhineBritain';
@@ -34,8 +34,6 @@ export default function Beat({ beat, onActive }) {
   const { lang } = useLang();
   const ref = useRef(null);
   const part = PARTS[beat.part];
-  const nextBeat = BEATS.find((b) => b.n === beat.n + 1);
-  const nextPresenter = nextBeat ? PRESENTERS[PARTS[nextBeat.part].presenter] : null;
   const headingId = `beat-${beat.n}-title`;
 
   // which beat is on screen → sky + rail
@@ -74,7 +72,6 @@ export default function Beat({ beat, onActive }) {
         </p>
         <p className="part-tag reveal">
           <Phrase text={{ fr: `Partie ${beat.part}`, en: `Part ${beat.part}` }} /> — {pick(part, lang)}
-          <span className="presenter">{PRESENTERS[part.presenter]}</span>
         </p>
         <Phrase as="h2" id={headingId} text={beat.title} className="beat-title reveal" />
         <blockquote className="beat-line reveal">
@@ -93,10 +90,6 @@ export default function Beat({ beat, onActive }) {
         )}
         {beat.handover && (
           <div className="handover reveal">
-            <p className="handover-kicker">
-              {lang === 'en' ? 'Hand-over' : 'Passage de relais'}
-              {nextPresenter && <> → <span className="presenter">{nextPresenter}</span></>}
-            </p>
             <Phrase as="p" text={beat.handover} className="handover-line" />
           </div>
         )}
