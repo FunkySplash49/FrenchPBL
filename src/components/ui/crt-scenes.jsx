@@ -101,6 +101,19 @@ uniform float uMix;        // 0 → A, 1 → B
 uniform vec2 uSeed;        // new random offset ~24×/s (static, grain)
 uniform float uFade;       // first appearance
 uniform float uLine;       // scanline period, buffer px
+// boxes over the backdrop, buffer px, top-left origin: kind 0 = glass card (refracts),
+// kind 1 = lit box (dims its surroundings and bleeds its light into the picture)
+uniform vec4 uBox[8];
+uniform float uBoxKind[8];
+uniform vec3 uBoxCol[8];
+uniform int uBoxN;
+uniform float uBoxR;       // corner radius, buffer px
+uniform float uPx;         // buffer px per CSS px
+
+float sdBox(vec2 p, vec2 b, float r) {
+  vec2 q = abs(p) - b + r;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
 
 vec3 tube(sampler2D t, vec2 uv) {
   // lens softness + chromatic bleed: red leans left, blue leans right
@@ -111,32 +124,80 @@ vec3 tube(sampler2D t, vec2 uv) {
   return vec3(0.62 * l.r + 0.38 * c.r, 0.22 * l.g + 0.56 * c.g + 0.22 * r.g, 0.62 * r.b + 0.38 * c.b);
 }
 
+// which: 0 = scene A, 1 = scene B, in between = crossfade (reduced motion)
+vec3 scene(vec2 uv, float which) {
+  vec3 a = which < 0.999 ? grade(tube(uA, cover(uv, uFitA, uDriftA)), uExpA) : vec3(0.0);
+  vec3 b = which > 0.001 ? grade(tube(uB, cover(uv, uFitB, uDriftB)), uExpB) : vec3(0.0);
+  return mix(a, b, which);
+}
+vec3 soft(vec2 uv, float which) {
+  vec3 a = which < 0.999 ? texture2D(uA, cover(uv, uFitA, uDriftA)).rgb : vec3(0.0);
+  vec3 b = which > 0.001 ? texture2D(uB, cover(uv, uFitB, uDriftB)).rgb : vec3(0.0);
+  return grade(mix(a, b, which), mix(uExpA, uExpB, which));
+}
+
 void main() {
   vec2 frag = gl_FragCoord.xy;
   vec2 suv = frag / uRes;
   vec2 uv = vec2(suv.x, 1.0 - suv.y);
+  vec2 px = vec2(frag.x, uRes.y - frag.y); // top-left buffer px, like the DOM
 
   vec4 rnd = texture2D(uNoise, (floor(frag) + 0.5) / 256.0);
   vec4 live = texture2D(uNoise, (floor(frag) + 0.5) / 256.0 + uSeed);
 
-  vec3 col;
+  // which scene this pixel shows
+  float which = 0.0;
   float spark = 0.0;
-  if (uMix <= 0.0) {
-    col = grade(tube(uA, cover(uv, uFitA, uDriftA)), uExpA);
-  } else if (uMotion < 0.5) {
-    col = mix(grade(tube(uA, cover(uv, uFitA, uDriftA)), uExpA), grade(tube(uB, cover(uv, uFitB, uDriftB)), uExpB), uMix);
-  } else {
+  if (uMix > 0.0 && uMotion < 0.5) {
+    which = uMix;
+  } else if (uMix > 0.0) {
     // every pixel has its own moment to flip (random, with a slight top-to-bottom lean)
     float h = (rnd.r + rnd.g / 256.0) * 0.86 + uv.y * 0.14;
     const float band = 0.07;
     float edge = uMix * (1.0 + band);
-    if (h > edge) {
-      col = grade(tube(uA, cover(uv, uFitA, uDriftA)), uExpA);
-    } else {
-      col = grade(tube(uB, cover(uv, uFitB, uDriftB)), uExpB);
+    if (h <= edge) {
+      which = 1.0;
       // just flipped: sparkling static that dies out
       if (h > edge - band) spark = step(0.45, live.b) * (1.0 - (edge - h) / band);
     }
+  }
+
+  // boxes: glass cards bend the picture; lit boxes dim around themselves and glow
+  float glass = 0.0; float rim = 0.0; vec2 guv = uv;
+  float dim = 0.0; vec3 glow = vec3(0.0);
+  for (int i = 0; i < 8; i++) {
+    if (i >= uBoxN) break;
+    vec4 r = uBox[i];
+    vec2 b = r.zw * 0.5;
+    vec2 q = px - (r.xy + b);
+    float d = sdBox(q, b, uBoxR);
+    if (uBoxKind[i] < 0.5) {
+      if (d < 0.0) {
+        // lens: near the rim the glass pulls the picture in from outside its edge
+        // (the bend), and the middle is gently magnified
+        float depth = clamp(-d / (34.0 * uPx), 0.0, 1.0);
+        float bend = (1.0 - depth) * (1.0 - depth);
+        vec2 n = q / max(b, vec2(1.0));
+        vec2 off = n * bend * 26.0 * uPx - q * 0.05;
+        guv = (px + off) / uRes;
+        glass = smoothstep(0.0, 1.5 * uPx, -d);
+        rim = 1.0 - smoothstep(0.0, 4.0 * uPx, -d);
+      }
+    } else if (d > 0.0) {
+      dim = max(dim, exp(-d / (240.0 * uPx)));
+      glow += uBoxCol[i] * (exp(-d / (26.0 * uPx)) * 0.6 + exp(-d / (120.0 * uPx)) * 0.2);
+    }
+  }
+
+  vec3 col = scene(uv, which);
+  if (glass > 0.0) {
+    // frost: a soft blur of the bent picture under a little of the sharp one
+    vec2 e = vec2(9.0 * uPx) / uRes;
+    vec3 blurred = (soft(guv + e, which) + soft(guv - e, which)
+                  + soft(guv + vec2(e.x, -e.y), which) + soft(guv + vec2(-e.x, e.y), which)
+                  + soft(guv + vec2(e.x * 1.8, 0.0), which) + soft(guv - vec2(e.x * 1.8, 0.0), which)) / 6.0;
+    vec3 inGlass = mix(scene(guv, which), blurred, 0.72);
+    col = mix(col, inGlass, glass);
   }
 
   // glow: bloom keeps the colour of the light, halation spreads wider and warmer
@@ -146,9 +207,10 @@ void main() {
   col += spark * vec3(1.0, 0.86, 0.62) * 0.75;
 
   // phosphor scanlines: dark gaps between lines, thinner where the picture is bright
+  // (softer behind glass — the frost smooths them)
   float l = clamp(dot(col, LUM), 0.0, 1.0);
   float scan = 0.5 + 0.5 * cos(frag.y * 6.28318 / uLine);
-  col *= 1.0 - (0.34 - 0.20 * l) * (1.0 - scan);
+  col *= 1.0 - (0.34 - 0.20 * l) * (1.0 - scan) * (1.0 - 0.6 * glass);
   col *= 1.10;
   // aperture grille (RGB stripes)
   float m = mod(floor(frag.x), 3.0);
@@ -157,6 +219,15 @@ void main() {
   float bar = fract(uTime * 0.06);
   col *= 1.0 + 0.06 * smoothstep(0.09, 0.0, abs(uv.y - bar)) * uMotion;
   col += (live.a - 0.5) * 0.05 * uMotion;
+
+  // lit boxes: the picture is damped around them, and their light bleeds into it (neon)
+  col *= 1.0 - 0.5 * dim;
+  col += glow * (0.6 + 0.4 * l);
+  // glass: a light haze (readable text, never fully clear) + a bright rim
+  // (thicker over bright parts of the painting, so text contrast holds everywhere)
+  float lg = clamp(dot(col, LUM), 0.0, 1.0);
+  col = mix(col, col * 0.5 + vec3(0.050, 0.034, 0.024), (0.5 + 0.38 * lg) * glass);
+  col += rim * glass * vec3(0.30, 0.24, 0.17);
 
   // tube vignette; the very top stays calmer for the top bar
   vec2 v = suv - 0.5;
@@ -207,7 +278,7 @@ const srcOf = (s) => (typeof s === 'string' ? s : s.src);
 /**
  * scenes: [{ src, focus?: [x, y] (0–1, what to keep in view when cropped), exposure? }] or [src]
  */
-export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, maxPixels = 2.2e6, className = '' }) {
+export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, maxPixels = 2.2e6, glassSelector = '', glowSelector = '', className = '' }) {
   const ref = useRef(null);
   const want = useRef(index);
   want.current = Math.max(0, Math.min(scenes.length - 1, index));
@@ -220,6 +291,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     let stopFallback = null;
     const fallback = () => {
       canvas.classList.add('is-fallback');
+      document.documentElement.classList.remove('has-glass'); // CSS cards stay solid
       const paint = () => { canvas.style.backgroundImage = `url("${srcOf(scenes[want.current])}")`; };
       paint();
       const t = setInterval(paint, 400);
@@ -247,13 +319,57 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     try {
       bright = program(FRAG_BRIGHT, shared);
       blur = program(FRAG_BLUR, ['uTex', 'uDir', 'uInv']);
-      final = program(FRAG_FINAL, [...shared, 'uNoise', 'uBloom', 'uHalo', 'uSeed', 'uFade', 'uLine']);
+      final = program(FRAG_FINAL, [...shared, 'uNoise', 'uBloom', 'uHalo', 'uSeed', 'uFade', 'uLine', 'uBox', 'uBoxKind', 'uBoxCol', 'uBoxN', 'uBoxR', 'uPx']);
     } catch (err) {
       if (import.meta.env.DEV) console.warn('[crt] falling back:', err);
       fallback();
       return () => stopFallback?.();
     }
     canvas.classList.remove('is-fallback');
+    // the CSS side of the glass cards switches on only when the shader draws them
+    if (glassSelector) document.documentElement.classList.add('has-glass');
+
+    // boxes over the backdrop: read from the DOM each frame (a handful of rects, no
+    // layout thrash — scrolling doesn't invalidate layout), redraw at once when they move
+    const boxData = new Float32Array(32); const boxKind = new Float32Array(8); const boxCol = new Float32Array(24);
+    let boxN = 0; let boxKey = ''; let boxR = 14;
+    const glowCache = new WeakMap();
+    const DEFAULT_GLOW = [238 / 255, 138 / 255, 69 / 255]; // --ember-400
+    const glowOf = (el) => {
+      let c = glowCache.get(el);
+      if (!c) {
+        const v = getComputedStyle(el).getPropertyValue('--viz-glow').trim();
+        const m = v.match(/^#([0-9a-f]{6})$/i);
+        c = m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255) : DEFAULT_GLOW;
+        glowCache.set(el, c);
+      }
+      return c;
+    };
+    const readBoxes = () => {
+      if (!glassSelector && !glowSelector) return false;
+      const cw = canvas.clientWidth; const ch = canvas.clientHeight;
+      if (!cw || !ch) return false;
+      const kx = canvas.width / cw; const ky = canvas.height / ch;
+      let n = 0; let key = '';
+      const add = (el, kind) => {
+        if (n >= 8) return;
+        const b = el.getBoundingClientRect();
+        if (b.width < 2 || b.bottom < -300 || b.top > ch + 300) return;
+        boxData[n * 4] = b.left * kx; boxData[n * 4 + 1] = b.top * ky;
+        boxData[n * 4 + 2] = b.width * kx; boxData[n * 4 + 3] = b.height * ky;
+        boxKind[n] = kind;
+        boxCol.set(kind ? glowOf(el) : [0, 0, 0], n * 3);
+        key += `${kind}:${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.width)},${Math.round(b.height)};`;
+        if (kind === 0 && n === 0) boxR = (parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14) * kx;
+        n += 1;
+      };
+      if (glassSelector) document.querySelectorAll(glassSelector).forEach((el) => add(el, 0));
+      if (glowSelector) document.querySelectorAll(glowSelector).forEach((el) => add(el, 1));
+      boxN = n;
+      if (key === boxKey) return false;
+      boxKey = key;
+      return true;
+    };
 
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -415,6 +531,8 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
         dirty = true;
       }
       if (tex.has(a) && fade < 1) { fade = Math.min(1, fade + dt / 0.7); dirty = true; }
+      if (readBoxes()) dirty = true; // a card or box moved (scroll, resize): draw now
+
       // hidden behind a topic page (lib/dive.js fades the backdrop out): draw nothing
       const host = canvas.parentElement;
       if (host && (host.style.opacity === '0' || host.style.visibility === 'hidden')) { dirty = true; return; }
@@ -452,6 +570,12 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       gl.uniform2f(final.u.uSeed, seed[0], seed[1]);
       gl.uniform1f(final.u.uFade, fade);
       gl.uniform1f(final.u.uLine, Math.max(3, Math.round(canvas.height / 300)));
+      gl.uniform4fv(final.u.uBox, boxData);
+      gl.uniform1fv(final.u.uBoxKind, boxKind);
+      gl.uniform3fv(final.u.uBoxCol, boxCol);
+      gl.uniform1i(final.u.uBoxN, boxN);
+      gl.uniform1f(final.u.uBoxR, boxR);
+      gl.uniform1f(final.u.uPx, canvas.width / Math.max(1, canvas.clientWidth));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
     raf = requestAnimationFrame(frame);
@@ -470,6 +594,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
 
     return () => {
       dead = true;
+      document.documentElement.classList.remove('has-glass');
       cancelAnimationFrame(raf); ro.disconnect(); stopFallback?.();
       document.removeEventListener('visibilitychange', onVis);
       canvas.removeEventListener('webglcontextlost', onLost);
@@ -478,7 +603,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       gl.deleteTexture(noise); gl.deleteTexture(blank); gl.deleteBuffer(buf);
       [bright, blur, final].forEach((pr) => gl.deleteProgram(pr.p));
     };
-  }, [scenes, switchMs, settleMs, maxPixels]);
+  }, [scenes, switchMs, settleMs, maxPixels, glassSelector, glowSelector]);
 
   return <canvas ref={ref} className={`crt ${className}`} aria-hidden="true" />;
 }
