@@ -39,7 +39,7 @@ export const BEATS = [
     body: [
       {
         fr: "Entre le Rhin, les Alpes et l'océan vivent environ 60 {{peuple|peuples gaulois}} indépendants : Arvernes, Éduens, Séquanes, Helvètes, Belges… Ils cultivent, frappent des monnaies et habitent des villes fortifiées sur les hauteurs, les {{oppidum|oppida}}.",
-        en: 'Between the Rhine, the Alps and the ocean live about 60 independent {{peuple|peuples gaulois}}: Arvernes, Éduens, Séquanes, Helvètes, Belges… They farm, mint coins and live in fortified hill-towns, the {{oppidum|oppida}}.',
+        en: 'Between the Rhine, the Alps and the ocean live about 60 independent {{peuple|peuples gaulois}}: Arvernes, Éduens, Séquanes, Helvètes, Belges… They farm, mint coins and live in {{oppidum|oppida}} on the hilltops.',
       },
       {
         fr: "Mais ils ne forment pas une nation : des tribus rivales s'allient même avec l'étranger contre leurs voisins. Au sud, Rome tient déjà « la Province » depuis 121 av. J.-C.",
@@ -208,7 +208,7 @@ export const BEATS = [
       },
       {
         fr: "Puis l'erreur : en juillet, [[vercingetorix|Vercingétorix]] attaque la colonne romaine en marche. La cavalerie germanique de César met ses cavaliers en déroute. Plutôt que de risquer une bataille, il se replie sur un {{oppidum}} : [[alesia|Alésia]].",
-        en: "Then the mistake: in July [[vercingetorix|Vercingétorix]] attacks Caesar's marching column. Caesar's Germanic cavalry rout the Gallic horsemen. Rather than risk a battle, he falls back to an {{oppidum}}: [[alesia|Alésia]].",
+        en: "Then the mistake: in July [[vercingetorix|Vercingétorix]] attacks Caesar's marching column. Caesar's Germanic cavalry rout the Gallic horsemen. Rather than risk a battle, he falls back to a {{oppidum}}: [[alesia|Alésia]].",
       },
     ],
     handover: {
@@ -236,7 +236,7 @@ export const BEATS = [
       },
       {
         fr: "Une {{ligne-int}} d'environ 16 km face à la ville, avec 23 forts. Puis une {{ligne-ext}} d'environ 21 km face à l'{{secours}}. Devant : {{fosse|fossés}}, {{rempart}}, {{tour|tours}}, et des pièges que les soldats surnomment les « lis ».",
-        en: 'A {{ligne-int}} of about 16 km facing the town, with 23 forts. Then a {{ligne-ext}} of about 21 km facing the {{secours}}. In front: {{fosse|fossés}}, a {{rempart}}, {{tour|tours}}, and traps the soldiers nicknamed "lilies".',
+        en: 'An {{ligne-int}} of about 16 km facing the town, with 23 forts. Then an {{ligne-ext}} of about 21 km facing the {{secours}}. In front: {{fosse|fossés}}, a {{rempart}}, {{tour|tours}}, and traps the soldiers nicknamed "lilies".',
       },
     ],
     facts: [

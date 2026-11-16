@@ -123,6 +123,10 @@ kbd {
 @media (hover: hover) { .term:hover .term-tip { display: block; } }
 .term:focus-visible .term-tip, .term.is-open .term-tip { display: block; }
 .term-tip-fr { display: block; font-weight: 600; }
+.term.is-en { font-style: normal; }
+.term-tip-kicker { display: block; font-family: var(--font-display); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-400); }
+.term.is-en .term-tip-fr { font-style: italic; font-size: 1.05em; }
+.term-tip-pl { font-weight: 400; font-style: normal; color: var(--text-muted); font-size: 0.9em; }
 
 /* ── Hero ─────────────────────────────────────────────────────── */
 .hero {

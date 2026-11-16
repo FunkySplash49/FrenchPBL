@@ -9,6 +9,9 @@ import Beat from './components/Beat';
 import Outro from './components/Outro';
 import BeatRail from './components/BeatRail';
 import { haptic } from './lib/haptics';
+import { AnimatePresence } from 'framer-motion';
+import { useTopicRoute } from './lib/topic';
+import TopicCard from './components/topic/TopicCard';
 
 const LAST = 13; // 0 = title, 1–12 = beats, 13 = sources
 
@@ -25,6 +28,7 @@ function isInteractive(el) {
 
 export default function App() {
   const [active, setActive] = useState(0);
+  const topic = useTopicRoute();
   const activeRef = useRef(0);
   activeRef.current = active;
 
@@ -59,7 +63,7 @@ export default function App() {
     const onStart = (e) => {
       const t = e.touches[0];
       const blocked = e.touches.length > 1
-        || e.target.closest?.('.is-zoomed, .tabs, .choices, .rail, .fx-chart, input, textarea');
+        || e.target.closest?.('.tc-layer, .is-zoomed, .tabs, .choices, .rail, .fx-chart, input, textarea');
       start = blocked ? null : { x: t.clientX, y: t.clientY, at: Date.now() };
     };
     const onEnd = (e) => {
@@ -105,6 +109,7 @@ export default function App() {
         <Outro onActive={onActive} onTop={() => goTo(0)} />
       </main>
       <BeatRail active={active} onJump={goTo} />
+      <AnimatePresence>{topic && <TopicCard key={topic} id={topic} />}</AnimatePresence>
     </LangProvider>
   );
 }
