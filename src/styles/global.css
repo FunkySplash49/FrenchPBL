@@ -133,9 +133,21 @@ kbd {
 .hero-inner {
   position: relative; display: grid; justify-items: center; gap: var(--space-5);
   padding: var(--space-7) var(--space-5);
-  background: radial-gradient(ellipse at center, rgb(18 10 6 / 0.78) 0%, rgb(18 10 6 / 0.5) 55%, transparent 75%);
+  isolation: isolate;
 }
-.hero-sub { justify-content: center; }
+/* local scrim behind the title: on a layer larger than the block, fading fully to
+   transparent INSIDE its own box (closest-side), so it never ends in a hard edge */
+.hero-inner::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  inset: -22% -28%;
+  background: radial-gradient(closest-side, rgb(18 10 6 / 0.8) 0%, rgb(18 10 6 / 0.62) 45%, rgb(18 10 6 / 0.28) 75%, rgb(18 10 6 / 0) 100%);
+}
+.hero-sub {
+  justify-content: center; color: var(--gold-200);
+  text-shadow: 0 0 10px rgb(18 10 6 / 0.95), 0 0 2px rgb(18 10 6 / 0.9), 0 1px 2px rgb(0 0 0 / 0.8);
+}
+.hero-sub .eyebrow-sep { color: var(--amber-300); }
+.hero-lead, .hero-keys { text-shadow: 0 0 12px rgb(18 10 6 / 0.9), 0 1px 2px rgb(0 0 0 / 0.75); }
 .hero-word {
   font-family: var(--font-wordmark); font-size: var(--text-hero); font-weight: 700;
   line-height: 0.95; letter-spacing: 0.02em; color: var(--gold-100);
