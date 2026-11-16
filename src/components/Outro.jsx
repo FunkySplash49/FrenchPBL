@@ -3,6 +3,7 @@ import { ArrowUp, ExternalLink } from 'lucide-react';
 import { useLang, pick } from '../lib/lang';
 import { ScrollTrigger } from '../lib/motion';
 import { PARTS, PRESENTERS } from '../data/beats';
+import { SCENES } from '../data/scenes';
 
 const SOURCES = [
   { label: 'César, La Guerre des Gaules, livre VII (trad. Nisard) — Wikisource', href: 'https://fr.wikisource.org/wiki/La_Guerre_des_Gaules/Livre_I' },
@@ -64,6 +65,23 @@ export default function Outro({ onActive, onTop }) {
               {en
                 ? 'Pictures in the previews: Wikimedia Commons (free licences; tap “Image” on a card for the author and licence).'
                 : 'Images des aperçus : Wikimedia Commons (licences libres ; touchez « Image » sur une carte pour l’auteur et la licence).'}
+            </p>
+            <h3 className="outro-h outro-h-sub">{en ? 'Background pictures' : 'Images de fond'}</h3>
+            <ol className="scene-credits" start={0}>
+              {SCENES.map((s) => (
+                <li key={s.href}>
+                  <a href={s.href} target="_blank" rel="noreferrer">
+                    {pick(s.artist, lang)}, <cite>{pick(s.title, lang)}</cite>, {pick(s.date, lang)}
+                    <span className="sr-only">{en ? '(opens in a new tab)' : '(nouvel onglet)'}</span>
+                  </a>
+                  <span className="scene-lic"> — {s.license === 'Public domain' ? (en ? 'public domain' : 'domaine public') : s.license}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="credits">
+              {en
+                ? 'Shown cropped and recoloured through an old-TV effect. Files and full credits: Wikimedia Commons (number = step of the story, 0 = title).'
+                : 'Affichées recadrées et recolorées par un effet « vieille télé ». Fichiers et crédits complets : Wikimedia Commons (numéro = étape du récit, 0 = titre).'}
             </p>
           </div>
         </div>

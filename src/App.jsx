@@ -15,12 +15,6 @@ import TopicView from './components/topic/TopicView';
 
 const LAST = 13; // 0 = title, 1–12 = beats, 13 = sources
 
-function skyFor(i) {
-  if (i <= 0) return 'gold';
-  if (i >= LAST) return 'afterglow';
-  return BEATS[i - 1].sky;
-}
-
 /* Keys that should not be hijacked when the reader is inside a control. */
 function isInteractive(el) {
   return !!el?.closest?.('button, a, input, textarea, select, [role="tab"], [role="slider"], .term, .unit');
@@ -101,7 +95,7 @@ export default function App() {
   return (
     <LangProvider>
       <a href="#beat-1" className="skip-link">Aller au récit</a>
-      <Backdrop sky={skyFor(active)} />
+      <Backdrop step={active} />
       <TopBar onHome={() => goTo(0)} />
       <main className="story" ref={storyRef}>
         <Hero onActive={onActive} onStart={() => goTo(1)} />

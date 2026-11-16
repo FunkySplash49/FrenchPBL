@@ -11,6 +11,11 @@ export default function BeatRail({ active, onJump }) {
 
   return (
     <nav className="rail" aria-label={en ? 'Story steps' : 'Étapes du récit'}>
+      {/* touch screens without a keyboard (classroom monitor): big prev / next beside the steps */}
+      <button type="button" className="rail-arrow rail-edge" onClick={() => { haptic('tick'); onJump(Math.max(0, active - 1)); }}
+        aria-label={en ? 'Previous step' : 'Étape précédente'} disabled={active <= 0}>
+        <ChevronLeft size={26} strokeWidth={1.75} aria-hidden="true" />
+      </button>
       <ol className="rail-steps">
         {BEATS.map((b, i) => {
           const newPart = i > 0 && BEATS[i - 1].part !== b.part;
@@ -33,6 +38,10 @@ export default function BeatRail({ active, onJump }) {
           );
         })}
       </ol>
+      <button type="button" className="rail-arrow rail-edge" onClick={() => { haptic('tick'); onJump(Math.min(13, active + 1)); }}
+        aria-label={en ? 'Next step' : 'Étape suivante'} disabled={active >= 13}>
+        <ChevronRight size={26} strokeWidth={1.75} aria-hidden="true" />
+      </button>
 
       <div className="rail-compact">
         <button type="button" className="rail-arrow" onClick={() => { haptic('tick'); onJump(Math.max(0, active - 1)); }}
