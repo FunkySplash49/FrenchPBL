@@ -811,3 +811,18 @@ html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
     inset 0 0 24px rgb(255 220 180 / 0.04),
     0 20px 50px rgb(0 0 0 / 0.35);
 }
+
+/* beat 5 — Rhine bridge elevation + real Channel inset (visuals/RhineBritain) */
+.viz-rhine .bank { fill: var(--ink-700); }
+.viz-rhine .current { fill: none; stroke: rgb(247 236 214 / 0.18); stroke-width: 0.9; stroke-linecap: round; }
+.viz-rhine .guard { fill: var(--clay-600); opacity: 0.45; }
+.viz-rhine .pile-shape { stroke: rgb(18 10 6 / 0.6); stroke-width: 0.5; }
+.viz-rhine .beam { fill: var(--amber-300); opacity: 0.85; }
+.viz-rhine .plank { stroke: rgb(18 10 6 / 0.55); stroke-width: 1; }
+.viz-rhine .deck-planks { fill: var(--clay-600); }
+.callout-text { font-family: var(--font-body); font-style: italic; font-size: 9.5px; fill: var(--text-muted); paint-order: stroke; stroke: rgb(18 10 6 / 0.7); stroke-width: 2px; }
+.map-place-sm { font-family: var(--font-body); font-size: 10.5px; fill: var(--text); paint-order: stroke; stroke: rgb(18 10 6 / 0.8); stroke-width: 2.5px; }
+.sea-route { stroke-dasharray: 0.02 0.015; }
+.viz-rhine .inset-sea { fill: rgb(18 10 6 / 0.75); }
+.viz-rhine .land { fill: var(--ink-700); fill: color-mix(in srgb, var(--ink-700) 70%, var(--amber-300)); }
+.inset-frame { fill: none; stroke: rgb(247 236 214 / 0.25); stroke-width: 1; }
