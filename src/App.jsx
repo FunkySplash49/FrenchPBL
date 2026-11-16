@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { LangProvider } from './lib/lang';
 import { BEATS } from './data/beats';
 import { ScrollTrigger, prefersReduced } from './lib/motion';
@@ -11,7 +11,12 @@ import BeatRail from './components/BeatRail';
 import { haptic } from './lib/haptics';
 import { AnimatePresence } from 'framer-motion';
 import { useTopicRoute } from './lib/topic';
-import TopicView from './components/topic/TopicView';
+import { loadTopicView } from './lib/topic';
+
+// Topic pages (component + researched text) load in their own chunk: fetched when the
+// browser is idle after first paint, and again on the first hover / touch of a key word,
+// so the dive never waits — but the first load of the story is lighter.
+const TopicView = lazy(loadTopicView);
 
 const LAST = 13; // 0 = title, 1–12 = beats, 13 = sources
 
@@ -92,6 +97,24 @@ export default function App() {
     return () => { clearTimeout(t); ro.disconnect(); };
   }, []);
 
+  useEffect(() => {
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1500));
+    const h = idle(() => loadTopicView(), { timeout: 4000 });
+    return () => (window.cancelIdleCallback || clearTimeout)(h);
+  }, []);
+
+  // Off-screen steps: pause their looping CSS animations (flows, flickers, pulses).
+  // Only what you can't see stops, so nothing looks different — it just stops costing.
+  useEffect(() => {
+    const root = storyRef.current;
+    if (!root || !('IntersectionObserver' in window)) return undefined;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => e.target.classList.toggle('is-offscreen', !e.isIntersecting));
+    }, { rootMargin: '25% 0px' });
+    root.querySelectorAll(':scope > section').forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
   return (
     <LangProvider>
       <a href="#beat-1" className="skip-link">Aller au récit</a>
@@ -103,7 +126,7 @@ export default function App() {
         <Outro onActive={onActive} onTop={() => goTo(0)} />
       </main>
       <BeatRail active={active} onJump={goTo} />
-      <AnimatePresence>{topic && <TopicView key={topic} id={topic} />}</AnimatePresence>
+      <Suspense fallback={null}><AnimatePresence>{topic && <TopicView key={topic} id={topic} />}</AnimatePresence></Suspense>
     </LangProvider>
   );
 }

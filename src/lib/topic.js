@@ -6,6 +6,10 @@ import { useEffect, useState } from 'react';
  * is where the camera dives in.
  */
 const PREFIX = '#/sujet/';
+
+/** the topic page chunk — one shared promise, so prefetch and render reuse it */
+let topicChunk = null;
+export const loadTopicView = () => (topicChunk ??= import('../components/topic/TopicView'));
 let origin = null;
 
 export const topicFromHash = () =>

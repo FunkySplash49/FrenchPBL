@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion } 
 import { PREVIEWS } from '../../data/previews';
 import { useLang, pick } from '../../lib/lang';
 import { haptic } from '../../lib/haptics';
-import { openTopic } from '../../lib/topic';
+import { openTopic, loadTopicView } from '../../lib/topic';
 
 /*
  * Picture preview on a key word — adapted from Aceternity's LinkPreview
@@ -60,12 +60,13 @@ export function LinkPreview({ id, children }) {
           href={`#/sujet/${id}`}
           className={`lp-link${p.italic ? ' is-italic' : ''}`}
           onMouseMove={onMouseMove}
-          onPointerEnter={() => preload(p.img)}
+          onPointerEnter={() => { preload(p.img); loadTopicView(); }}
           onFocus={() => preload(p.img)}
           onPointerDown={(e) => {
             touchPress.current = e.pointerType !== 'mouse';
             wasOpenAtPress.current = openRef.current;
             preload(p.img);
+            loadTopicView();
           }}
           onClick={(e) => {
             e.preventDefault();

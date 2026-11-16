@@ -756,3 +756,6 @@ html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
 .is-touch .viz { background: rgb(28 17 10 / 0.94); }
 /* below 900px the compact rail already has its own arrows */
 @media (max-width: 899px) { .is-touch .rail-edge { display: none; } }
+
+/* off-screen story steps (App.jsx IntersectionObserver): looping animations wait */
+.is-offscreen, .is-offscreen * { animation-play-state: paused !important; }

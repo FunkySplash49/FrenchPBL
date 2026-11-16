@@ -1,7 +1,7 @@
 import { useId, useRef } from 'react';
 import { LAND, BRITAIN, REGIONS, PROVINCE, RIVERS, PLACES, OPPIDA, FIRES } from '../data/gaul';
 import { useLang, pick } from '../lib/lang';
-import { useScene, gsap, sceneTrigger, DUR, EASE, STAGGER } from '../lib/motion';
+import { useScene, gsap, ScrollTrigger, sceneTrigger, DUR, EASE, STAGGER } from '../lib/motion';
 import ZoomToggle from '../components/ZoomToggle';
 import { useLive, useCycle, Packet, Flow, Brackets, curve } from './motionKit';
 
@@ -180,9 +180,14 @@ export default function GaulMap({ mode = 'tribes' }) {
       })
         .from(q('.avaricum'), { opacity: 0, scale: 0.6, transformOrigin: '50% 50%', duration: DUR.base });
       // gentle flicker, background-only decoration
-      gsap.to(q('.fire-core'), {
+      const flicker = gsap.to(q('.fire-core'), {
         opacity: 0.55, duration: 0.6, ease: 'sine.inOut', yoyo: true, repeat: -1,
         stagger: { each: 0.15, from: 'random' },
+      });
+      // only while the map is on screen (it loops forever otherwise)
+      ScrollTrigger.create({
+        trigger: root, start: 'top bottom', end: 'bottom top',
+        onToggle: (self) => (self.isActive ? flicker.resume() : flicker.pause()),
       });
     }
   }, [mode]);

@@ -168,14 +168,38 @@ void main() {
   gl_FragColor = vec4(col * uFade, 1.0);
 }`;
 
-function loadImage(src) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = () => res(img);
-    img.onerror = rej;
-    img.src = src;
-  });
+/*
+ * Fetch + decode a scene OFF the main thread (createImageBitmap), already scaled to the
+ * GPU size limit, so a 1920px painting never stalls scrolling or a switch while it
+ * decodes. The upload that follows is then a plain copy. Falls back to <img> + decode().
+ * Same pixels either way: same orientation / colour conversion as an <img> upload.
+ */
+async function loadImage(src, maxSide) {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const blob = await (await fetch(src)).blob();
+      let bmp = await createImageBitmap(blob);
+      const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+      if (k < 1) {
+        const w = Math.round(bmp.width * k); const h = Math.round(bmp.height * k);
+        const big = bmp;
+        bmp = await createImageBitmap(big, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' });
+        big.close();
+      }
+      return { source: bmp, w: bmp.width, h: bmp.height, bitmap: true };
+    } catch { /* fall through to <img> */ }
+  }
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = src;
+  await img.decode();
+  let source = img; const k = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+  if (k < 1) {
+    source = document.createElement('canvas');
+    source.width = Math.round(img.naturalWidth * k); source.height = Math.round(img.naturalHeight * k);
+    source.getContext('2d').drawImage(img, 0, 0, source.width, source.height);
+  }
+  return { source, w: source.width || img.naturalWidth, h: source.height || img.naturalHeight };
 }
 
 const srcOf = (s) => (typeof s === 'string' ? s : s.src);
@@ -280,17 +304,11 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     const ensure = (i) => {
       if (i < 0 || i >= scenes.length || tex.has(i) || loading.has(i)) return;
       loading.add(i);
-      loadImage(srcOf(scenes[i])).then((img) => {
-        if (dead || gl.isContextLost()) return;
-        let source = img; const w = img.naturalWidth; const h = img.naturalHeight;
-        const k = Math.min(1, maxTex / Math.max(w, h));
-        if (k < 1) {
-          source = document.createElement('canvas');
-          source.width = Math.round(w * k); source.height = Math.round(h * k);
-          source.getContext('2d').drawImage(img, 0, 0, source.width, source.height);
-        }
+      loadImage(srcOf(scenes[i]), maxTex).then(({ source, w, h, bitmap }) => {
+        if (dead || gl.isContextLost()) { if (bitmap) source.close(); return; }
         const t = mkTex(gl.LINEAR, gl.CLAMP_TO_EDGE);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, source);
+        if (bitmap) source.close();
         tex.set(i, { t, w, h });
         if (tex.size > KEEP) {
           const far = [...tex.keys()].filter((j) => j !== a && j !== b && j !== want.current)
@@ -336,7 +354,8 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     let mix = 0; let switching = false; let fade = 0;
     let settled = a; let seen = a; let seenAt = performance.now();
     let t = 0; let last = performance.now(); let raf = 0;
-    let seed = [0, 0]; let seedAt = 0;
+    let seed = [0, 0]; let seedAt = 0; let drawnAt = 0;
+    const IDLE_MS = 32;
 
     const fit = (i) => {
       const e = tex.get(i); const s = scenes[i];
@@ -396,8 +415,15 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
         dirty = true;
       }
       if (tex.has(a) && fade < 1) { fade = Math.min(1, fade + dt / 0.7); dirty = true; }
+      // hidden behind a topic page (lib/dive.js fades the backdrop out): draw nothing
+      const host = canvas.parentElement;
+      if (host && (host.style.opacity === '0' || host.style.visibility === 'hidden')) { dirty = true; return; }
+      // idle (no switch, no fade-in): the grain only changes every 40 ms and the drift is
+      // well under a pixel per frame, so ~30 draws/s look identical to 60 — half the GPU.
+      if (!reduce && !switching && fade >= 1 && !dirty && now - drawnAt < IDLE_MS) return;
       if (reduce && !dirty) return; // nothing moves: keep the last frame
       dirty = false;
+      drawnAt = now;
 
       const k = switching ? mix * mix * (3 - 2 * mix) : 0;
       if (now - seedAt > 40) { seedAt = now; seed = [Math.floor(Math.random() * 256) / 256, Math.floor(Math.random() * 256) / 256]; }
