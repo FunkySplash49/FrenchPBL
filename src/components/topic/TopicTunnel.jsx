@@ -6,13 +6,13 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
  * (golden-angle card layout + framer-motion z-travel + pointer parallax)
  * for this Vite/JS site: no Tailwind, DESIGN.md tokens, sized to its container.
  *
- * `progress` is driven by the parent:
- *   0 → 1   intro flight: cards leave the far end one after another and fly past the camera
- *   1 → 3   ambient loop (repeats): cards keep drifting by behind the page title;
- *           `ambient` (0 → 1) fades them back in after the intro
+ * `progress` is one continuous stream driven by the parent (fast during the
+ * intro, then slowing into an ambient drift): card i is "born" at the far end
+ * when progress reaches its stagger point, then cycles forever — one tunnel
+ * length per unit of progress — so the flight never stops or restarts.
  */
 const SPRING = { stiffness: 60, damping: 25, mass: 0.5 };
-const SPAN = 0.5;
+const STAGGER = 0.7; // births spread over the first 0.7 of progress
 
 function useBox(ref) {
   const [box, setBox] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -44,21 +44,24 @@ function usePointer(enabled) {
   return { x, y };
 }
 
-function Card({ img, i, total, progress, ambient, pointer, box, onPick }) {
+function Card({ img, i, total, progress, pointer, box, onPick }) {
   const golden = i * 137.5 * (Math.PI / 180);
   const rfx = 0.28 + (i % 3) * 0.08;
   const rfy = 0.26 + (i % 2) * 0.09;
   const rot = (i % 2 === 0 ? 1 : -1) * (3 + (i % 5) * 2);
   const mobile = box.width < 768;
-  const start = (i / total) * (1 - SPAN);
+  const born = (i / total) * STAGGER;
 
-  const phase = useTransform(progress, (p) => (p <= 1
-    ? Math.min(1, Math.max(0, (p - start) / SPAN))
-    : ((p - 1) * 0.5 + i / total) % 1));
-  const z = useTransform(phase, [0, 1], mobile ? [-1200, 350] : [-1700, 500]);
-  const opacity = useTransform([phase, progress, ambient], ([ph, p, a]) => {
-    const base = ph < 0.15 ? ph / 0.15 : ph > 0.82 ? Math.max(0, 1 - (ph - 0.82) / 0.16) : 1;
-    return p <= 1 ? base : base * a;
+  const phase = useTransform(progress, (p) => (p < born ? -1 : (p - born) % 1));
+  const z = useTransform(phase, (ph) => {
+    const [far, near] = mobile ? [-1200, 350] : [-1700, 500];
+    return far + Math.max(0, ph) * (near - far);
+  });
+  const opacity = useTransform(phase, (ph) => {
+    if (ph < 0) return 0;
+    if (ph < 0.15) return ph / 0.15;
+    if (ph > 0.82) return Math.max(0, 1 - (ph - 0.82) / 0.16);
+    return 1;
   });
 
   const w = mobile ? Math.max(120, Math.min(170, box.width * 0.38)) : Math.max(170, Math.min(260, box.width * 0.18));
@@ -83,7 +86,7 @@ function Card({ img, i, total, progress, ambient, pointer, box, onPick }) {
   );
 }
 
-export default function TopicTunnel({ images, progress, ambient, reduce, onPick }) {
+export default function TopicTunnel({ images, progress, reduce, onPick }) {
   const ref = useRef(null);
   const box = useBox(ref);
   const pointer = usePointer(!reduce);
@@ -107,7 +110,7 @@ export default function TopicTunnel({ images, progress, ambient, reduce, onPick 
       <div className="tt-ring tt-ring-b" aria-hidden="true" />
       <div className="tt-space">
         {images.map((img, i) => (
-          <Card key={img.thumb} img={img} i={i} total={images.length} progress={progress} ambient={ambient} pointer={pointer} box={box} onPick={onPick} />
+          <Card key={img.thumb} img={img} i={i} total={images.length} progress={progress} pointer={pointer} box={box} onPick={onPick} />
         ))}
       </div>
     </div>

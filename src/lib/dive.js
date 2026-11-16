@@ -20,9 +20,9 @@ const layers = () => ({
 
 let saved = null;
 
-export function diveIn(origin) {
+export function diveIn(origin, onPlunge) {
   const { story, sky, chrome } = layers();
-  if (!story) return Promise.resolve();
+  if (!story) { onPlunge?.(); return Promise.resolve(); }
   const o = origin ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   // origin in the story's own coordinates (it scrolls with the page)
   const r = story.getBoundingClientRect();
@@ -38,6 +38,7 @@ export function diveIn(origin) {
   ].filter(Boolean);
 
   return Promise.all(wind.map((a) => a.finished)).then(() => {
+    onPlunge?.();
     const dive = [
       animate(story, { scale: 7, opacity: 0, filter: 'blur(10px)' }, { duration: PLUNGE, ease: [0.7, 0, 0.84, 0] }),
       sky && animate(sky, { scale: 1.6, opacity: 0 }, { duration: PLUNGE, ease: [0.7, 0, 0.84, 0] }),

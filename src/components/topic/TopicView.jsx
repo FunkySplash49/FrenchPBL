@@ -12,12 +12,16 @@ import './topic.css';
 
 /*
  * A key word's own page (#/sujet/<id>), entered through a camera move that plays by itself:
- *   1. dive   — the story pulls back (winding up), then the camera plunges into the word
- *   2. flight — the topic's pictures fly past the camera (perspective tunnel)
- *   3. page   — the title settles over the drifting pictures; the article sits below
+ *   1. dive   — the story pulls back (winding up), then the camera plunges into the word;
+ *               as it plunges, the topic's pictures start streaming out of the far end
+ *   2. flight — the pictures fly past the camera (perspective tunnel)
+ *   3. page   — mid-stream, the title settles in; the stream eases into a slow drift
  * Any click / key during 1–2 skips to the page. Esc, Back or "Retour" plays it in reverse.
  */
-const FLIGHT_S = 2.8;
+const INTRO_TO = 1.8; // stream position where the intro flight hands over to the drift
+const INTRO_S = 3.6;  // s
+const LAND_AT = 1.05; // the title lands while pictures are still streaming past
+const DRIFT_S = 26;   // s per tunnel length once the page is up
 
 function rich(s) {
   return s.split(/(\*[^*]+\*)/g).map((part, i) =>
@@ -56,51 +60,45 @@ export default function TopicView({ id }) {
   const [phase, setPhase] = useState(reduce ? 'page' : origin ? 'dive' : 'flight');
   const [zoom, setZoom] = useState(null);
   const progress = useMotionValue(0);
-  const ambient = useMotionValue(0);
-  const flight = useRef(null);
+  const stream = useRef(null);
 
-  // skipping: snap the flight to its end and show the page
-  const toPage = useCallback(() => {
-    flight.current?.complete();
-    setPhase('page');
-  }, []);
+  // the picture stream: one continuous flight — fast while the camera dives,
+  // easing off into an ambient drift. The title lands mid-stream, so the
+  // pictures overlap both the dive and the landing with no gap.
+  const startStream = useCallback(() => {
+    if (stream.current || reduce) return;
+    const s = { stop: () => {} };
+    stream.current = s;
+    const intro = animate(progress, INTRO_TO, {
+      duration: INTRO_S, ease: [0.3, 0.55, 0.35, 1],
+      onUpdate: (v) => { if (v > LAND_AT) setPhase('page'); },
+      onComplete: () => {
+        const from = progress.get();
+        const drift = animate(progress, from + 100, { duration: 100 * DRIFT_S, ease: 'linear' });
+        s.stop = () => drift.stop();
+      },
+    });
+    s.stop = () => intro.stop();
+  }, [progress, reduce]);
 
-  // 1. dive: the story winds up and plunges (lib/dive.js), then 2. the flight starts
+  useEffect(() => () => stream.current?.stop(), []);
+
+  // skipping: the stream keeps flowing, only the title comes in early
+  const toPage = useCallback(() => { startStream(); setPhase('page'); }, [startStream]);
+
+  // 1. dive: the story winds up; the stream starts as the camera plunges
   useEffect(() => {
-    let alive = true;
     // fetch + decode the pictures during the wind-up so the flight is never empty
     topic?.images.forEach((im) => { const i = new Image(); i.decoding = 'async'; i.src = im.thumb; i.decode?.().catch(() => {}); });
-    if (phase === 'dive') diveIn(origin).then(() => { if (alive) setPhase((p) => (p === 'dive' ? 'flight' : p)); });
-    return () => { alive = false; };
+    if (reduce) return;
+    if (phase === 'dive') diveIn(origin, startStream);
+    else startStream();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 2. flight: pictures leave the far end and pass the camera, by themselves
+  // 3. page: focus the way back
   useEffect(() => {
-    if (phase !== 'flight') return undefined;
-    // land as the last pictures pass the camera (no empty tail)
-    const c = animate(progress, 1, {
-      duration: FLIGHT_S, ease: [0.4, 0, 0.6, 1],
-      onUpdate: (v) => { if (v > 0.8) setPhase('page'); },
-    });
-    flight.current = c;
-  }, [phase, progress]);
-
-  // 3. page: pictures keep drifting behind the title
-  useEffect(() => {
-    if (phase !== 'page' || reduce) return undefined;
-    let a; let loop; let alive = true;
-    // let the last pictures finish passing, then drift on
-    const start = () => {
-      if (!alive) return;
-      progress.jump(1);
-      a = animate(ambient, 1, { duration: 0.9 });
-      loop = animate(progress, [1, 3], { duration: 44, ease: 'linear', repeat: Infinity });
-    };
-    const f = flight.current;
-    if (f && progress.get() < 1) f.finished.then(start); else start();
-    backRef.current?.focus({ preventScroll: true });
-    return () => { alive = false; a?.stop(); loop?.stop(); };
-  }, [phase, progress, ambient, reduce]);
+    if (phase === 'page') backRef.current?.focus({ preventScroll: true });
+  }, [phase]);
 
   // lock the page behind; put the story back (in reverse) when leaving
   useEffect(() => {
@@ -150,9 +148,7 @@ export default function TopicView({ id }) {
 
       <div className="tv-scroll" ref={scrollRef}>
         <section className="tv-hero">
-          {phase !== 'dive' && (
-            <TopicTunnel images={imgs} progress={progress} ambient={ambient} reduce={reduce} onPick={pickImg} />
-          )}
+          <TopicTunnel images={imgs} progress={progress} reduce={reduce} onPick={pickImg} />
           <motion.div
             className="tv-head"
             initial={false}
