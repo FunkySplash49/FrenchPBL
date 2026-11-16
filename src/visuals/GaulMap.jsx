@@ -1,24 +1,46 @@
 import { useId, useRef } from 'react';
-import { LAND, BRITAIN, REGIONS, PROVINCE, RIVERS, PLACES, OPPIDA, FIRES } from '../data/gaul';
+import {
+  LAND, BRITAIN, GAUL, LAKES, REGIONS, PROVINCE, RIVERS, PLACES, PEOPLE, OPPIDA, FIRES, MOUNTAINS, GRATICULE, NEIGHBOURS, project,
+} from '../data/gaul';
 import { useLang, pick } from '../lib/lang';
 import { useScene, gsap, ScrollTrigger, sceneTrigger, DUR, EASE, STAGGER } from '../lib/motion';
 import ZoomToggle from '../components/ZoomToggle';
 import { useLive, useCycle, Packet, Flow, Brackets, curve } from './motionKit';
 
 /* ── army motion per map state (ink-orbit vocabulary; Rome = squares, Gaul = circles) ── */
-const PROVINCE_HUB = [300, 318];
+// every position below comes from real coordinates (lon, lat) through the map projection
+const at = (lon, lat) => project(lon, lat).map((v) => Math.round(v * 10) / 10);
+const pathOf = (pts) => {
+  // smooth path through real waypoints (Catmull-Rom → cubic Béziers)
+  const p = pts.map(([lon, lat]) => at(lon, lat));
+  let d = `M${p[0][0]},${p[0][1]}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const p0 = p[i - 1] || p[i]; const p1 = p[i]; const p2 = p[i + 1]; const p3 = p[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+};
+const PROVINCE_HUB = at(4.63, 43.68); // the Province, near Arles
 const target = (id) => {
   const r = REGIONS.find((g) => g.id === id);
   return [r.label[0], r.label[1] - 24];
 };
 const RIVALRIES = [['aedui', 'arverni'], ['aedui', 'helvetii'], ['belgae', 'aedui'], ['arverni', 'armorica'], ['aquitania', 'arverni']];
+// Helvetii, 58 BC (Caesar BG I): first try along the Rhône through the Province — blocked at
+// Genava; then over the Jura (Pas de l'Écluse) through Sequani land, across the Saône to the Aedui
 const HELVETII_ROUTES = {
-  blocked: 'M360,206 C348,222 338,232 324,240',
-  north: 'M356,166 C330,146 300,146 280,156 S252,176 242,186',
-  rome1: 'M318,330 C318,300 318,276 316,256',
-  rome2: 'M282,330 C276,300 266,268 256,236',
+  blocked: pathOf([[7.45, 46.95], [6.9, 46.5], [6.35, 46.25]]),
+  north: pathOf([[7.3, 47.05], [6.6, 46.75], [5.92, 46.15], [5.4, 46.3], [4.9, 46.6], [4.35, 46.85]]),
+  rome1: pathOf([[5.0, 44.1], [5.6, 45.0], [6.0, 45.85]]),
+  rome2: pathOf([[4.7, 44.3], [4.85, 45.4], [4.55, 46.55]]),
 };
-const SUPPLY = [[200, 182], [230, 166], [176, 206]];
+const BARRIER = at(6.0, 46.12);
+// 100 km on the map: the distance between two points ~100 km apart (≈0.9° of latitude)
+const SCALE_100KM = Math.round(Math.hypot(...(([a, b]) => [b[0] - a[0], b[1] - a[1]])([at(2.5, 46.5), at(2.5, 47.4)]))); // Caesar's wall along the Rhône below Genava
+// scorched earth: Roman foragers out of Agedincum / around Cenabum and the Bituriges
+const SUPPLY = [at(1.9, 47.75), at(2.9, 47.9), at(1.6, 46.85)];
 
 function MapArmies({ mode, live }) {
   const on = useCycle(CONQUEST_ORDER.length, 1700, live && mode === 'conquest');
@@ -94,6 +116,9 @@ function MapArmies({ mode, live }) {
  * The JSX always renders the FINAL state; GSAP animates from the start state.
  */
 
+// peoples named in small type on the "60 peoples" map (the rest are dots)
+const KEY_PEOPLE = ['Carnutes', 'Bituriges', 'Séquanes', 'Rèmes', 'Nerviens', 'Trévires', 'Lingons', 'Sénons', 'Parisii', 'Pictons', 'Lémovices', 'Santons'];
+
 const CONQUEST_ORDER = ['helvetii', 'aedui', 'belgae', 'armorica', 'aquitania', 'arverni'];
 const REVOLT_ORDER = ['arverni', 'aedui', 'aquitania', 'armorica', 'belgae', 'helvetii'];
 
@@ -131,6 +156,7 @@ export default function GaulMap({ mode = 'tribes' }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const clip = `land-${uid}`;
   const grid = `grid-${uid}`;
+  const gaulClip = `gaul-${uid}`;
   const arrowRome = `ar-${uid}`;
   const arrowGaul = `ag-${uid}`;
   const side = regionSide(mode);
@@ -210,6 +236,7 @@ export default function GaulMap({ mode = 'tribes' }) {
         <desc id={`${uid}-d`}>{pick(CAPTIONS[mode], lang)}</desc>
         <defs>
           <clipPath id={clip}><path d={LAND} /></clipPath>
+          <clipPath id={gaulClip}><path d={GAUL} /></clipPath>
           <pattern id={grid} width="20" height="20" patternUnits="userSpaceOnUse">
             <path d="M20 0 L0 0 0 20" className="grid-line" />
           </pattern>
@@ -221,12 +248,31 @@ export default function GaulMap({ mode = 'tribes' }) {
           </marker>
         </defs>
 
+        {/* sea: grid, graticule, then old-atlas water lines hugging every coast */}
+        <rect width="400" height="420" className="map-sea" />
         <rect width="400" height="420" fill={`url(#${grid})`} />
-        <path d={BRITAIN} className="land" />
-        <text x="142" y="22" className="map-label map-label-sea" textAnchor="middle">Bretagne</text>
-        <path d={LAND} className="land" />
+        <path d={GRATICULE} className="graticule" />
+        <g className="water-lines" aria-hidden="true">
+          <path d={`${LAND} ${BRITAIN}`} className="wl wl-3" />
+          <path d={`${LAND} ${BRITAIN}`} className="wl wl-2" />
+          <path d={`${LAND} ${BRITAIN}`} className="wl wl-1" />
+        </g>
+        {/* land outside Gaul (Britain, Germania, Hispania, Italia) dimmer than Gaul itself */}
+        <path d={BRITAIN} className="land land-out" />
+        <path d={LAND} className="land land-out" />
+        <g clipPath={`url(#${gaulClip})`}><path d={LAND} className="land" /></g>
+        {LAKES.map((d, i) => <path key={i} d={d} className="lake" />)}
+        {/* mountains: hachured ridges */}
+        <g className="mountains" aria-hidden="true">
+          {MOUNTAINS.map((m) => (
+            <g key={m.id}>
+              <path d={m.ticks} className="mtn-tick" />
+              <path d={m.ridge} className="mtn-ridge" />
+            </g>
+          ))}
+        </g>
 
-        <g clipPath={`url(#${clip})`}>
+        <g clipPath={`url(#${clip})`}><g clipPath={`url(#${gaulClip})`}>
           {/* region colour overlays (final state) */}
           {side && REGIONS.map((r) => (
             <path key={r.id} d={r.d} data-region={r.id}
@@ -239,10 +285,28 @@ export default function GaulMap({ mode = 'tribes' }) {
           {/* borders */}
           {REGIONS.map((r) => <path key={r.id} d={r.d} className="region-border" />)}
           <path d={PROVINCE.d} className="region-border" />
-        </g>
+          {/* inner-edge shade along Gaul's border */}
+          <path d={GAUL} className="gaul-inner" />
+        </g></g>
 
-        <path d={LAND} className="coast" />
-        {RIVERS.map((r) => <path key={r.id} d={r.d} className="river" />)}
+        <path d={`${LAND} ${BRITAIN}`} className="coast" />
+        <path d={GAUL} className="gaul-border" clipPath={`url(#${clip})`} />
+        {RIVERS.map((r) => <path key={r.id} d={r.d} className={`river${r.major ? ' is-major' : ''}`} />)}
+        <g className="neighbours" aria-hidden="true">
+          {NEIGHBOURS.map((n) => (
+            <text key={n.id} x={n.x} y={n.y} textAnchor="middle"
+              className={n.id === 'ocean' || n.id === 'mer' ? 'sea-label' : 'land-label'}>
+              {pick(n.name, lang)}
+            </text>
+          ))}
+        </g>
+        {mode === 'tribes' && (
+          <g className="peoples" aria-hidden="true">
+            {PEOPLE.filter((p) => KEY_PEOPLE.includes(p.n)).map((p) => (
+              <text key={p.n} x={p.x} y={p.y + 11} textAnchor="middle" className="people-label">{p.n}</text>
+            ))}
+          </g>
+        )}
 
         {mode === 'tribes' && (
           <g aria-hidden="true">
@@ -256,18 +320,18 @@ export default function GaulMap({ mode = 'tribes' }) {
         {mode === 'helvetii' && (
           <g aria-hidden="true">
             {/* 1. first route, through the Province — blocked on the Rhône */}
-            <path d="M360,206 C348,222 338,232 324,240" pathLength="1" className="route route-gaul route-blocked" markerEnd={`url(#${arrowGaul})`} />
+            <path d={HELVETII_ROUTES.blocked} pathLength="1" className="route route-gaul route-blocked" markerEnd={`url(#${arrowGaul})`} />
             <g className="barrier">
-              <rect x="306" y="240" width="20" height="7" rx="1" className="glyph-rome" transform="rotate(-38 316 243)" />
+              <rect x={BARRIER[0] - 10} y={BARRIER[1] - 3.5} width="20" height="7" rx="1" className="glyph-rome" transform={`rotate(-38 ${BARRIER[0]} ${BARRIER[1]})`} />
             </g>
-            <path d="M318,330 C318,300 318,276 316,256" pathLength="1" className="route route-rome" markerEnd={`url(#${arrowRome})`} />
+            <path d={HELVETII_ROUTES.rome1} pathLength="1" className="route route-rome" markerEnd={`url(#${arrowRome})`} />
             {/* 2. second route, north, into Éduen land */}
-            <path d="M356,166 C330,146 300,146 280,156 S252,176 242,186" pathLength="1" className="route route-gaul route-new" markerEnd={`url(#${arrowGaul})`} />
+            <path d={HELVETII_ROUTES.north} pathLength="1" className="route route-gaul route-new" markerEnd={`url(#${arrowGaul})`} />
             {/* 3. Rome answers the Éduens' call */}
-            <path d="M282,330 C276,300 266,268 256,236" pathLength="1" className="route route-rome" markerEnd={`url(#${arrowRome})`} />
+            <path d={HELVETII_ROUTES.rome2} pathLength="1" className="route route-rome" markerEnd={`url(#${arrowRome})`} />
             <g className="ally-tag">
-              <rect x="128" y="206" width="98" height="20" rx="4" className="tag-bg" />
-              <text x="177" y="220" textAnchor="middle" className="map-note">
+              <rect x="112" y="206" width="98" height="20" rx="4" className="tag-bg" />
+              <text x="161" y="220" textAnchor="middle" className="map-note">
                 {lang === 'en' ? 'Rome’s allies →' : 'alliés de Rome →'}
               </text>
             </g>
@@ -286,6 +350,24 @@ export default function GaulMap({ mode = 'tribes' }) {
         )}
 
         <MapArmies mode={mode} live={live} />
+
+        {/* Alésia, always marked: a camera-style target reticle */}
+        <g className="reticle" aria-hidden="true" transform={`translate(${PLACES.alesia.x} ${PLACES.alesia.y})`}>
+          <circle r="7" className="ret-ring" />
+          <path d="M-12,0 h6 M6,0 h6 M0,-12 v6 M0,6 v6" className="ret-tick" />
+          <circle r="1.6" className="ret-dot" />
+          <text x="10" y="-9" className="ret-label">ALÉSIA</text>
+        </g>
+
+        {/* scale bar (100 km) + north arrow */}
+        <g className="map-furniture" aria-hidden="true" transform="translate(16 398)">
+          <path d={`M0,0 h${SCALE_100KM} M0,-4 v4 M${SCALE_100KM / 2},-3 v3 M${SCALE_100KM},-4 v4`} className="scale-bar" />
+          <text x={SCALE_100KM + 6} y="3" className="scale-text">100 km</text>
+          <g transform="translate(6 -26)">
+            <path d="M0,-11 L4,3 L0,0 L-4,3 Z" className="north" />
+            <text x="0" y="-14" textAnchor="middle" className="scale-text">N</text>
+          </g>
+        </g>
 
         <g className="map-labels">
           {REGIONS.map((r) => label(r, side))}
@@ -306,17 +388,17 @@ export default function GaulMap({ mode = 'tribes' }) {
               <text x={PLACES.gergovie.x} y={PLACES.gergovie.y + 26} textAnchor="middle" className="map-place">Gergovie</text>
             </g>
             <circle cx={PLACES.bibracte.x} cy={PLACES.bibracte.y} r="5" className="place-dot" />
-            <text x={PLACES.bibracte.x - 9} y={PLACES.bibracte.y + 4} textAnchor="end" className="map-place">Bibracte</text>
+            <text x={PLACES.bibracte.x - 8} y={PLACES.bibracte.y - 6} textAnchor="end" className="map-place">Bibracte</text>
           </g>
         )}
 
         {mode === 'burn' && (
           <g className="avaricum">
             <circle cx={PLACES.avaricum.x} cy={PLACES.avaricum.y} r="7" className="leader-dot" />
-            <line x1={PLACES.avaricum.x - 4} y1={PLACES.avaricum.y + 8} x2="160" y2="282" className="leader-line" />
-            <rect x="100" y="282" width="116" height="38" rx="5" className="tag-bg" />
-            <text x="158" y="298" textAnchor="middle" className="map-place">Avaricum</text>
-            <text x="158" y="314" textAnchor="middle" className="map-note">40 000 → 800</text>
+            <line x1={PLACES.avaricum.x - 6} y1={PLACES.avaricum.y + 4} x2="128" y2="244" className="leader-line" />
+            <rect x="12" y="226" width="116" height="38" rx="5" className="tag-bg" />
+            <text x="70" y="242" textAnchor="middle" className="map-place">Avaricum</text>
+            <text x="70" y="258" textAnchor="middle" className="map-note">40 000 → 800</text>
           </g>
         )}
 

@@ -267,6 +267,31 @@ kbd {
 .region-fill.is-dim { opacity: 0.5; }
 .region-fill.is-accent { fill: var(--gold-400); opacity: 0.3; }
 .river { fill: none; stroke: rgb(247 236 214 / 0.3); stroke-width: 1.6; stroke-linecap: round; }
+/* real-geography map layers (data/gaul.js, Natural Earth) — static SVG, no filters */
+.map-sea { fill: rgb(18 10 6 / 0.55); }
+.graticule { fill: none; stroke: rgb(226 176 74 / 0.08); stroke-width: 0.6; stroke-dasharray: 1 3; }
+.wl { fill: none; stroke: var(--gold-200); stroke-linejoin: round; }
+.wl-1 { stroke-width: 3.5; opacity: 0.16; }
+.wl-2 { stroke-width: 8; opacity: 0.08; }
+.wl-3 { stroke-width: 14; opacity: 0.04; }
+.land-out { fill: var(--ink-800); }
+.lake { fill: rgb(18 10 6 / 0.8); stroke: rgb(247 236 214 / 0.3); stroke-width: 0.6; }
+.mtn-tick { fill: none; stroke: var(--clay-600); stroke-width: 0.9; stroke-linecap: round; opacity: 0.9; }
+.mtn-ridge { fill: none; stroke: var(--amber-300); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; opacity: 0.55; }
+.gaul-inner { fill: none; stroke: var(--ink-950); stroke-width: 14; opacity: 0.32; }
+.gaul-border { fill: none; stroke: var(--gold-400); stroke-width: 1.1; stroke-dasharray: 5 3; opacity: 0.55; }
+.river.is-major { stroke: rgb(247 236 214 / 0.45); stroke-width: 1.5; }
+.river:not(.is-major) { stroke-width: 0.9; stroke: rgb(247 236 214 / 0.26); }
+.land-label { font-family: var(--font-display); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; fill: var(--text-faint); }
+.sea-label { font-family: var(--font-body); font-style: italic; font-size: 11px; letter-spacing: 0.12em; fill: rgb(243 216 148 / 0.45); }
+.people-label { font-family: var(--font-body); font-style: italic; font-size: 8.5px; fill: var(--text-muted); paint-order: stroke; stroke: rgb(18 10 6 / 0.7); stroke-width: 2px; }
+.reticle .ret-ring { fill: none; stroke: var(--parchment-50); stroke-width: 1.1; }
+.reticle .ret-tick { fill: none; stroke: var(--parchment-50); stroke-width: 1.1; stroke-linecap: square; }
+.reticle .ret-dot { fill: var(--ember-400); }
+.reticle .ret-label { font-family: var(--font-display); font-size: 8px; font-weight: 600; letter-spacing: 0.2em; fill: var(--parchment-50); paint-order: stroke; stroke: rgb(18 10 6 / 0.8); stroke-width: 2.5px; }
+.scale-bar { fill: none; stroke: var(--text-muted); stroke-width: 1.1; }
+.scale-text { font-family: var(--font-display); font-size: 8.5px; letter-spacing: 0.12em; fill: var(--text-muted); }
+.north { fill: var(--gold-400); }
 .map-label { font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: 0.06em; fill: var(--text); paint-order: stroke; stroke: rgb(18 10 6 / 0.7); stroke-width: 3px; }
 .map-label-sea { fill: var(--text-muted); font-size: 12px; }
 .map-place { font-family: var(--font-body); font-size: 13px; fill: var(--text); paint-order: stroke; stroke: rgb(18 10 6 / 0.75); stroke-width: 3px; }
