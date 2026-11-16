@@ -42,28 +42,11 @@ kbd {
 
 /* ── Backdrop ─────────────────────────────────────────────────── */
 .backdrop { position: fixed; inset: 0; z-index: var(--z-backdrop); overflow: hidden; pointer-events: none; }
-.sky {
-  position: absolute; inset: 0; opacity: 0;
-  transition: opacity var(--dur-cinematic) var(--ease-cinematic);
-}
-.sky.is-on { opacity: 1; }
-.sky-gold { background: var(--sky-gradient); }
-.sky-amber { background: linear-gradient(180deg, var(--ink-950) 0%, var(--ink-900) 26%, var(--clay-600) 54%, var(--ember-500) 74%, var(--amber-300) 90%, var(--gold-200) 100%); }
-.sky-ember { background: linear-gradient(180deg, var(--ink-950) 0%, var(--ink-900) 32%, var(--clay-600) 62%, var(--ember-500) 86%, var(--ember-400) 100%); }
-.sky-dusk  { background: linear-gradient(180deg, var(--ink-950) 0%, var(--ink-900) 44%, var(--clay-600) 80%, var(--ember-500) 100%); }
-.sky-night { background: linear-gradient(180deg, var(--ink-950) 0%, var(--ink-900) 60%, var(--clay-600) 100%); }
-.sky-afterglow { background: linear-gradient(180deg, var(--ink-950) 0%, var(--ink-900) 40%, var(--clay-600) 76%, var(--ember-500) 94%, var(--amber-300) 100%); }
-
-.sun {
-  position: absolute; left: 50%; bottom: 14vh;
-  width: 34vmin; aspect-ratio: 1; border-radius: 50%;
-  background: radial-gradient(circle, var(--gold-100) 0%, var(--gold-200) 26%, rgb(245 178 107 / 0.35) 52%, transparent 70%);
-  transition: transform var(--dur-cinematic) var(--ease-cinematic);
-}
-.terrain { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 42vh; }
-.terrain-far  { fill: var(--ink-700); }
-.terrain-mid  { fill: var(--ink-800); }
-.terrain-near { fill: var(--ink-950); }
+/* dithered ember wave (components/ui/dithering-shader), rendered at 1/3 size, scaled up crisp */
+.dither { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.backdrop-dither { position: absolute; inset: 0; background: var(--ink-950); }
+/* no WebGL: the old sunset gradient, dimmed */
+.dither.is-fallback { background: linear-gradient(180deg, var(--ink-950) 0%, var(--ink-900) 50%, var(--clay-600) 100%); }
 .vignette { position: absolute; inset: 0; background: var(--vignette); }
 
 /* ── Top bar ──────────────────────────────────────────────────── */
