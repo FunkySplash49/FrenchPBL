@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import TvScreen from '../../visuals/TvScreen';
 
 /*
  * Perspective tunnel, adapted from the 21st.dev "PerspectiveTunnelHero"
@@ -75,13 +76,14 @@ function Card({ img, i, total, progress, pointer, box, onPick }) {
   return (
     <motion.button
       type="button"
-      className="tt-card"
+      className="tt-card tv-pic"
       style={{ width: w, transform, opacity }}
       onClick={() => onPick(i)}
       tabIndex={-1}
       aria-hidden="true"
     >
       <img src={img.thumb} alt="" draggable={false} decoding="async" />
+      <TvScreen />
     </motion.button>
   );
 }

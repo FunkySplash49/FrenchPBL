@@ -14,7 +14,7 @@ const ALL_SCENES = [...SCENES, ...TOPIC_IDS.map((id) => TOPIC_SCENES[id])];
  * frosts the picture behind them, with a haze so text stays readable); the title has its
  * own local scrim (.hero-inner).
  */
-export default function Backdrop({ step = 0, topic = null }) {
+export default function Backdrop({ step = 0, topic = null, switchMs = 1000 }) {
   // a key word's page shows its own picture: the backdrop switches to it with the same
   // pixel-by-pixel old-TV transition as scrolling between steps (and back on close)
   const t = topic ? TOPIC_IDS.indexOf(topic) : -1;
@@ -25,6 +25,7 @@ export default function Backdrop({ step = 0, topic = null }) {
         scenes={ALL_SCENES}
         index={index}
         warmCount={SCENES.length}
+        switchMs={switchMs}
         className="backdrop-crt"
         /* left text cards become liquid glass (refraction + haze drawn by the shader);
            the right-side boxes damp the picture around them and bleed their light into it */

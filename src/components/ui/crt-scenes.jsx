@@ -303,6 +303,9 @@ const srcOf = (s) => (typeof s === 'string' ? s : s.src);
 export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, maxPixels = 2.2e6, glassSelector = '', glowSelector = '', warmCount = Infinity, className = '' }) {
   const ref = useRef(null);
   const want = useRef(index);
+  // switch duration is read live (topic pages switch at 0.8× speed) — no WebGL rebuild
+  const switchRef = useRef(switchMs);
+  switchRef.current = switchMs;
   want.current = Math.max(0, Math.min(scenes.length - 1, index));
 
   useEffect(() => {
@@ -564,7 +567,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
 
       if (!switching && settled !== a && tex.has(settled) && tex.has(a)) { b = settled; mix = 0; switching = true; }
       if (switching) {
-        const step = dt / ((reduce ? 320 : switchMs) / 1000);
+        const step = dt / ((reduce ? 320 : switchRef.current) / 1000);
         if (settled === b) mix += step;
         else if (settled === a) mix -= step;      // went back: run it backwards
         else mix += step * 2.5;                    // somewhere else: finish fast, then chain
@@ -656,7 +659,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       gl.deleteTexture(noise); gl.deleteTexture(blank); gl.deleteBuffer(buf);
       [bright, blur, final].forEach((pr) => gl.deleteProgram(pr.p));
     };
-  }, [scenes, switchMs, settleMs, maxPixels, glassSelector, glowSelector]);
+  }, [scenes, settleMs, maxPixels, glassSelector, glowSelector]);
 
   return <canvas ref={ref} className={`crt ${className}`} aria-hidden="true" />;
 }

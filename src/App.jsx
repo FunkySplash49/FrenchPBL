@@ -30,6 +30,20 @@ function isInteractive(el) {
 export default function App() {
   const [active, setActive] = useState(0);
   const topic = useTopicRoute();
+  // the backdrop switches to a topic's picture a beat after the click — while the page's
+  // text is popping in — and topic switches (in and back out) run at 0.8× speed
+  const [bgTopic, setBgTopic] = useState(null);
+  const [slowSwitch, setSlowSwitch] = useState(false);
+  useEffect(() => {
+    if (topic) {
+      setSlowSwitch(true);
+      const t = setTimeout(() => setBgTopic(topic), 1150);
+      return () => clearTimeout(t);
+    }
+    setBgTopic(null);
+    const t = setTimeout(() => setSlowSwitch(false), 2200); // until the switch back has played
+    return () => clearTimeout(t);
+  }, [topic]);
   const activeRef = useRef(0);
   activeRef.current = active;
 
@@ -121,7 +135,7 @@ export default function App() {
     <LazyMotion features={domAnimation}>
     <LangProvider>
       <a href="#beat-1" className="skip-link">Aller au récit</a>
-      <Backdrop step={active} topic={topic} />
+      <Backdrop step={active} topic={bgTopic} switchMs={slowSwitch ? 1250 : 1000} />
       <TopBar onHome={() => goTo(0)} />
       <main className="story" ref={storyRef}>
         <Hero onActive={onActive} onStart={() => goTo(1)} />

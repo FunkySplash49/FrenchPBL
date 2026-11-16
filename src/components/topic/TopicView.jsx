@@ -8,6 +8,7 @@ import { closeTopic, takeOrigin } from '../../lib/topic';
 import { diveIn, diveOut } from '../../lib/dive';
 import { haptic } from '../../lib/haptics';
 import TopicTunnel from './TopicTunnel';
+import TvScreen from '../../visuals/TvScreen';
 import './topic.css';
 
 /*
@@ -195,8 +196,9 @@ export default function TopicView({ id }) {
                 <p>{tx(s.p)}</p>
                 {imgs[i + 1] && (
                   <figure className="tv-fig">
-                    <button type="button" onClick={() => setZoom(i + 1)} aria-label={en ? 'Enlarge picture' : 'Agrandir l’image'}>
+                    <button type="button" className="tv-pic" onClick={() => setZoom(i + 1)} aria-label={en ? 'Enlarge picture' : 'Agrandir l’image'}>
                       <img src={imgs[i + 1].thumb} alt="" loading="lazy" decoding="async" />
+                      <TvScreen />
                     </button>
                     <figcaption>{tx(imgs[i + 1].caption)}</figcaption>
                   </figure>
@@ -209,8 +211,9 @@ export default function TopicView({ id }) {
               <ul>
                 {imgs.map((img, i) => (
                   <li key={img.thumb}>
-                    <button type="button" onClick={() => setZoom(i)}>
+                    <button type="button" className="tv-pic" onClick={() => setZoom(i)}>
                       <img src={img.thumb} alt={pick(img.caption, lang).replace(/\*/g, '')} loading="lazy" decoding="async" />
+                      <TvScreen />
                     </button>
                   </li>
                 ))}
