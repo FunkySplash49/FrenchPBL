@@ -5,7 +5,7 @@ import { TOPICS } from '../../data/topics';
 import { PREVIEWS } from '../../data/previews';
 import { useLang, pick, frTypo } from '../../lib/lang';
 import { closeTopic, takeOrigin } from '../../lib/topic';
-import { diveIn, diveOut } from '../../lib/dive';
+import { diveIn, diveOut, hideStoryNow } from '../../lib/dive';
 import { haptic } from '../../lib/haptics';
 import TopicTunnel from './TopicTunnel';
 import TvScreen from '../../visuals/TvScreen';
@@ -91,6 +91,7 @@ export default function TopicView({ id }) {
   useEffect(() => {
     // fetch + decode the pictures during the wind-up so the flight is never empty
     topic?.images.forEach((im) => { const i = new Image(); i.decoding = 'async'; i.src = im.thumb; i.decode?.().catch(() => {}); });
+    if (reduce || phase !== 'dive') hideStoryNow(); // no dive: the story must not show through
     if (reduce) return;
     if (phase === 'dive') diveIn(origin, startStream);
     else startStream();

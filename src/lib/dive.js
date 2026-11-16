@@ -78,6 +78,9 @@ export function diveOut(reduce) {
 }
 
 function doDiveOut(reduce) {
+  // another topic page is already open (topic → topic: the old page's exit finishes after the
+  // new one mounted) — the story stays hidden
+  if (window.location.hash.startsWith('#/sujet/')) return;
   const { story, sky, chrome } = layers();
   if (!story) return;
   const clear = () => {
@@ -96,4 +99,16 @@ function doDiveOut(reduce) {
     run(story, [{ transform: 'scale(2.4)', opacity: 0, filter: 'blur(8px)' }, { transform: 'scale(1)', opacity: 1, filter: 'blur(0px)' }], { duration: 800, easing: EASE_BACK }),
     ...chrome.map((el) => run(el, [{ opacity: getComputedStyle(el).opacity }, { opacity: 1 }], { duration: 400, delay: 400 })),
   ]).then(clear);
+}
+
+/* opened without the dive (a shared link, or reduced motion): hide the story at once, the way
+   the dive would have, so it never shows through the topic page's light shade. diveOut()
+   restores everything on close. */
+export function hideStoryNow() {
+  // a page replacing another (topic → topic): cancel the previous page's pending restore
+  if (pendingOut) { clearTimeout(pendingOut); pendingOut = 0; }
+  const { story, chrome } = layers();
+  if (!story) return;
+  story.style.visibility = 'hidden';
+  chrome.forEach((el) => { el.style.opacity = '0'; });
 }
