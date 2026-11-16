@@ -826,3 +826,21 @@ html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
 .viz-rhine .inset-sea { fill: rgb(18 10 6 / 0.75); }
 .viz-rhine .land { fill: var(--ink-700); fill: color-mix(in srgb, var(--ink-700) 70%, var(--amber-300)); }
 .inset-frame { fill: none; stroke: rgb(247 236 214 / 0.25); stroke-width: 1; }
+
+/* Alésia plan detail (visuals/AlesiaPlan): terrain, works, camera HUD — static SVG */
+.plan-svg .contour { fill: none; stroke: var(--amber-300); stroke-width: 0.8; opacity: 0.22; }
+.plan-svg .contour:first-child { fill: rgb(122 52 22 / 0.18); opacity: 0.3; }
+.plan-svg .hill-name { font-family: var(--font-body); font-style: italic; font-size: 11px; fill: var(--text-faint); letter-spacing: 0.04em; }
+.plan-svg .river-bank { fill: none; stroke: rgb(18 10 6 / 0.55); stroke-width: 7; stroke-linecap: round; }
+.plan-svg .plan-terrain .river { stroke-width: 2.4; stroke: rgb(247 236 214 / 0.42); }
+.plan-svg .hachure { fill: none; stroke: var(--clay-600); stroke-width: 1; stroke-linecap: round; opacity: 0.85; }
+.plan-svg .traps { fill: none; stroke: var(--gold-400); stroke-width: 1.6; stroke-dasharray: 0.1 5.5; stroke-linecap: round; opacity: 0.55; }
+.plan-svg .ditch { fill: none; stroke: rgb(247 236 214 / 0.3); stroke-width: 0.9; stroke-dasharray: 4 3; }
+.plan-svg .towers { fill: none; stroke: var(--rome-text); stroke-width: 7; stroke-dasharray: 0.0025 0.016; opacity: 0.8; }
+.plan-svg .hud-rec { fill: var(--rome-400); }
+.plan-svg .hud-text { font-family: var(--font-display); font-size: 10px; font-weight: 600; letter-spacing: 0.16em; fill: var(--text-muted); }
+.plan-svg .reticle .ret-tick { stroke: var(--parchment-50); stroke-width: 1.2; opacity: 0.75; }
+@media (prefers-reduced-motion: no-preference) {
+  .plan-svg .hud-rec { animation: hud-blink 1.6s steps(1, end) infinite; }
+}
+@keyframes hud-blink { 50% { opacity: 0.2; } }

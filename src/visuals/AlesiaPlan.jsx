@@ -32,6 +32,24 @@ const RELIEF = Array.from({ length: 22 }, (_, i) => {
   return onEllipse(OUTER, deg, i > 10 ? 1.24 : 1.13);
 });
 
+/* terrain: the hills ringing Mont-Auxois (Napoleon III's excavation plan names) — contour rings */
+const HILLS = [
+  { id: 'rea', name: '', cx: 128, cy: 120, rx: 54, ry: 30, lx: 0, ly: 0 }, // named by the camp tag
+  { id: 'bussy', name: { fr: 'Montagne de Bussy', en: 'Bussy hill' }, cx: 372, cy: 54, rx: 92, ry: 26, lx: 372, ly: 22 },
+  { id: 'flavigny', name: { fr: 'Montagne de Flavigny', en: 'Flavigny hill' }, cx: 334, cy: 396, rx: 120, ry: 28, lx: 334, ly: 432 },
+  { id: 'pennevelle', name: 'Pennevelle', cx: 566, cy: 228, rx: 30, ry: 70, lx: 562, ly: 154 },
+];
+const CONTOURS = [1, 0.7, 0.42];
+// steep slopes of the plateau: short hachures pointing downhill
+const PLATEAU = { cx: C.x + 4, cy: C.y, rx: 92, ry: 42 };
+const HACHURES = Array.from({ length: 44 }, (_, i) => {
+  const a = (i / 44) * Math.PI * 2;
+  const x1 = PLATEAU.cx + PLATEAU.rx * Math.cos(a); const y1 = PLATEAU.cy + PLATEAU.ry * Math.sin(a);
+  const len = 7 + (i % 3) * 2;
+  return `M${x1.toFixed(1)},${y1.toFixed(1)} l${(Math.cos(a) * len).toFixed(1)},${(Math.sin(a) * len * 0.7).toFixed(1)}`;
+}).join(' ');
+const scaled = (e, f) => ({ cx: e.cx, cy: e.cy, rx: e.rx * f, ry: e.ry * f });
+
 /* relief army approach routes (from the west, onto the plain) */
 const APPROACH = [
   'M0,120 C30,130 46,140 70,150',
@@ -39,6 +57,10 @@ const APPROACH = [
   'M0,340 C30,334 50,326 76,316',
   'M40,0 C60,30 80,52 104,70',
 ];
+
+const RIVER_OSE = 'M600,128 C520,140 440,150 360,160 C290,168 220,176 132,196';
+const RIVER_OSERAIN = 'M600,318 C520,304 440,292 360,282 C290,272 210,250 132,214';
+const RIVER_BRENNE = 'M112,0 C116,90 126,160 132,205 C140,270 146,360 140,440';
 
 export const SECTORS = {
   rea:    { x: WEAK_CAMP[0], y: WEAK_CAMP[1] },
@@ -67,11 +89,22 @@ const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = 
       </defs>
       <rect width="600" height="440" fill={`url(#g-${uid})`} />
 
+      {/* hills: contour rings + names (positions schematic) */}
+      <g className="plan-hills" aria-hidden="true">
+        {HILLS.map((h) => (
+          <g key={h.id}>
+            {CONTOURS.map((f) => <ellipse key={f} cx={h.cx} cy={h.cy} rx={h.rx * f} ry={h.ry * f} className="contour" />)}
+            {h.name && <text x={h.lx} y={h.ly} textAnchor="middle" className="hill-name">{typeof h.name === 'string' ? h.name : (en ? h.name.en : h.name.fr)}</text>}
+          </g>
+        ))}
+        <text x="30" y="362" className="hill-name">{en ? 'Les Laumes plain' : 'Plaine des Laumes'}</text>
+      </g>
       {/* rivers: Ose (north), Oserain (south), Brenne (west) */}
       <g className="plan-terrain" aria-hidden="true">
-        <path d="M600,128 C520,140 440,150 360,160 C290,168 220,176 132,196" className="river" />
-        <path d="M600,318 C520,304 440,292 360,282 C290,272 210,250 132,214" className="river" />
-        <path d="M112,0 C116,90 126,160 132,205 C140,270 146,360 140,440" className="river" />
+        {[RIVER_OSE, RIVER_OSERAIN, RIVER_BRENNE].map((d) => <path key={`b${d}`} d={d} className="river-bank" />)}
+        <path d={RIVER_OSE} className="river" />
+        <path d={RIVER_OSERAIN} className="river" />
+        <path d={RIVER_BRENNE} className="river" />
         <text x="592" y="122" className="map-place river-name" textAnchor="end">Ose</text>
         <text x="560" y="336" className="map-place river-name" textAnchor="end">Oserain</text>
         <text x="100" y="420" className="map-place river-name" textAnchor="end">Brenne</text>
@@ -79,6 +112,7 @@ const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = 
 
       <g className="plan-scene">
         {/* the town on Mont-Auxois */}
+        <path d={HACHURES} className="hachure" aria-hidden="true" />
         <g className="plan-town">
           <UnitTip label={en ? 'Alésia · ~80,000 Gauls (per Caesar)' : 'Alésia · ~80 000 Gaulois (selon César)'} x={C.x + 4} y={C.y + 62}>
             <ellipse cx={C.x + 4} cy={C.y} rx="92" ry="42" className="plateau" />
@@ -87,13 +121,23 @@ const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = 
           <text x={C.x + 4} y={C.y - 50} textAnchor="middle" className="plan-label">Alésia</text>
         </g>
 
-        {/* inner line + 23 forts */}
+        {/* inner line (faces the town): traps in front, ditch, rampart with towers + 23 forts */}
+        <g className="works" aria-hidden="true">
+          <ellipse {...scaled(INNER, 0.9)} className="traps" />
+          <ellipse {...scaled(INNER, 0.955)} className="ditch" />
+          <ellipse {...INNER} pathLength="1" className="towers" />
+        </g>
         <ellipse {...INNER} pathLength="1" className="wall wall-inner" />
         <g className="forts">
           {FORTS.map(([x, y], i) => <rect key={i} x={x - 4} y={y - 4} width="8" height="8" className="unit-rome fort" />)}
         </g>
 
-        {/* outer line */}
+        {/* outer line (faces the relief army): traps + ditch outside, rampart with towers */}
+        <g className="works" aria-hidden="true">
+          <ellipse {...scaled(OUTER, 1.075)} className="traps" />
+          <ellipse {...scaled(OUTER, 1.035)} className="ditch" />
+          <ellipse {...OUTER} pathLength="1" className="towers" />
+        </g>
         <ellipse {...OUTER} pathLength="1" className="wall wall-outer" />
         <ellipse {...OUTER} rx={OUTER.rx - 7} ry={OUTER.ry - 7} pathLength="1" className="wall wall-outer wall-outer-2" />
 
@@ -156,6 +200,20 @@ const AlesiaPlan = forwardRef(function AlesiaPlan({ mode = 'build', highlight = 
         {highlight && SECTORS[highlight] && (
           <circle cx={SECTORS[highlight].x} cy={SECTORS[highlight].y} r="30" className="sector-ring" />
         )}
+
+        {/* camera HUD: definition, not noise */}
+        <g className="plan-hud" aria-hidden="true">
+          <circle cx="16" cy="16" r="4" className="hud-rec" />
+          <text x="26" y="20" className="hud-text">REC · {en ? 'SEPT. 52 BC' : 'SEPT. 52 av. J.-C.'}</text>
+          <g transform={`translate(${C.x + 4} ${C.y})`} className="reticle">
+            <path d="M-20,0 h9 M11,0 h9 M0,-20 v9 M0,11 v9" className="ret-tick" />
+          </g>
+          <text x="590" y="432" textAnchor="end" className="hud-text">47°32′N · 4°29′E</text>
+          <g transform="translate(578 70)">
+            <path d="M0,-12 L4.5,4 L0,0.5 L-4.5,4 Z" className="north" />
+            <text x="0" y="-16" textAnchor="middle" className="hud-text">N</text>
+          </g>
+        </g>
 
         {children}
       </g>
