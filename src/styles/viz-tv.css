@@ -1,0 +1,146 @@
+/* ════════════════════════════════════════════════════════════════
+   Old-TV look for the diagram boxes on the right (.viz)
+   Not a television set: just a retro CRT screen's behaviour — a slight fisheye (middle
+   magnified, edges squeezed), a slow tracking band rolling down now and then, warm phosphor
+   glow bleeding into the dark, creeping scanlines, dark rounded corners.
+
+   Pieces:
+     lib/vizTv.js         static SVG filters (#tv-crt fisheye, #tv-shift band smear) + <html> flags
+     visuals/TvScreen.jsx  the overlay layers (.tv-fx > .tv-roll), rendered by <Brackets/>
+   Cost: everything that moves is a transform on its own layer (compositor only).
+   The SVG filters never animate. Off-screen steps pause both animations (.is-offscreen).
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* token channels, for alpha mixes (same values as tokens.css) */
+  --tv-ink:   18 10 6;     /* --ink-950 */
+  --tv-ember: 238 138 69;  /* --ember-400 */
+  --tv-amber: 245 178 107; /* --amber-300 */
+  --tv-gold:  243 216 148; /* --gold-200 */
+  --tv-cycle: 15s;         /* one roll every 15 s (TvScreen.jsx CYCLE_S) */
+}
+
+.viz-card-inline { position: relative; }
+
+/* ── 1. Bleeding glow on the HTML text (titles, captions, buttons) ─────────── */
+.viz, .viz-card-inline {
+  text-shadow:
+    -0.5px 0 0 rgb(var(--tv-ember) / 0.22),
+    0.5px 0 0 rgb(var(--tv-gold) / 0.14),
+    0 0 9px rgb(var(--tv-amber) / 0.2);
+}
+
+/* ── 2. The diagrams themselves: fisheye + phosphor bloom + colour fringe ──── */
+/* The bloom is plain CSS drop-shadows (GPU, cheap); the fisheye is the static SVG filter,
+   only where SVG reference filters on HTML render well (not WebKit / iOS). */
+.viz {
+  --tv-glow:
+    drop-shadow(0.8px 0 0 rgb(var(--tv-ember) / 0.3))
+    drop-shadow(0 0 4px rgb(var(--tv-amber) / 0.32));
+}
+.viz svg:not(.lucide):not(svg svg) { filter: var(--tv-glow); }
+html.tv-svgfx .viz svg:not(.lucide):not(svg svg) { filter: url(#tv-crt) var(--tv-glow); }
+/* iPhone / small Safari: skip the per-frame shadow pass, the overlay carries the look */
+@media (max-width: 560px) {
+  html:not(.tv-svgfx) .viz svg:not(.lucide):not(svg svg) { filter: none; }
+}
+
+/* ── 3. Glass overlay: scanlines, vignette, the magnified middle band ──────── */
+.tv-fx {
+  position: absolute; inset: 0; z-index: 2;
+  border-radius: inherit; overflow: hidden; pointer-events: none;
+  contain: strict;
+}
+.tv-fx::before,
+.tv-fx::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+}
+/* scanlines — soft edges so they don't shimmer when scaled; they creep slowly downward
+   like a CRT raster (3px = one line, so the loop is seamless) */
+.tv-fx::before {
+  top: -3px;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0, transparent 0.8px,
+    rgb(var(--tv-ink) / 0.22) 1.5px, rgb(var(--tv-ink) / 0.22) 2.3px,
+    transparent 3px
+  );
+  animation: tv-crawl 1.6s linear infinite;
+}
+@keyframes tv-crawl { to { transform: translate3d(0, 3px, 0); } }
+/* tube: a faint warm phosphor stripe mask, rounded dark corners (curvature), and a
+   warm glow held across the magnified middle band */
+.tv-fx::after {
+  background:
+    repeating-linear-gradient(to right,
+      rgb(var(--tv-ember) / 0.035) 0, rgb(var(--tv-ember) / 0.035) 1px,
+      rgb(var(--tv-gold) / 0.03) 1px, rgb(var(--tv-gold) / 0.03) 2px,
+      transparent 2px, transparent 3px),
+    radial-gradient(150% 115% at 50% 50%, transparent 56%, rgb(var(--tv-ink) / 0.42) 100%),
+    linear-gradient(to bottom,
+      rgb(var(--tv-ink) / 0.24) 0%, transparent 13%,
+      rgb(var(--tv-amber) / 0.05) 36%, rgb(var(--tv-gold) / 0.075) 50%, rgb(var(--tv-amber) / 0.05) 64%,
+      transparent 87%, rgb(var(--tv-ink) / 0.24) 100%);
+  box-shadow:
+    inset 0 0 44px 4px rgb(var(--tv-ink) / 0.38),
+    inset 0 0 90px rgb(var(--tv-ember) / 0.06);
+}
+
+/* ── 4. The tracking band, rolling top → bottom now and then ───────────────── */
+.tv-roll {
+  position: absolute; left: 0; right: 0; top: 0; height: 25%;
+  z-index: 1;
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    rgb(var(--tv-amber) / 0.035) 35%,
+    rgb(var(--tv-gold) / 0.08) 74%,
+    rgb(var(--tv-gold) / 0.15) 84%,
+    rgb(var(--tv-ember) / 0.1) 87%,
+    transparent 100%);
+  transform: translate3d(0, -100%, 0);
+  animation: tv-roll var(--tv-cycle) linear infinite;
+  will-change: transform;
+}
+/* idle for ~55 % of the cycle, then a slow ~6.7 s pass (400 % = the box height) */
+@keyframes tv-roll {
+  0%, 55% { transform: translate3d(0, -100%, 0); }
+  100%    { transform: translate3d(0, 400%, 0); }
+}
+
+/* bigger screens: the band also smears what is under it */
+@media (min-width: 900px) {
+  .tv-roll {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 40%, #000 86%, transparent);
+            mask-image: linear-gradient(to bottom, transparent, #000 40%, #000 86%, transparent);
+  }
+  /* Safari / Firefox: CSS functions only (not on touch hardware: the backdrop there is live WebGL) */
+  html:not(.tv-bdurl):not(.is-touch) .tv-roll {
+    -webkit-backdrop-filter: brightness(1.07) saturate(1.08) blur(0.6px);
+            backdrop-filter: brightness(1.07) saturate(1.08) blur(0.6px);
+  }
+  /* Chromium (Chrome, Edge, Samsung Internet): content nudged sideways + ember ghost */
+  html.tv-bdurl .tv-roll { backdrop-filter: url(#tv-shift) blur(0.4px); }
+}
+
+/* ── 5. Where it steps aside ───────────────────────────────────────────────── */
+/* off-screen steps: global.css pauses elements; pseudo-elements need saying too */
+.is-offscreen .tv-fx::before { animation-play-state: paused; }
+
+/* full-screen reading view: plain and crisp */
+.viz.is-zoomed .tv-fx { display: none; }
+.viz.is-zoomed svg { filter: none !important; }
+.viz.is-zoomed { text-shadow: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-roll { display: none; } /* static screen: no roll, no smear */
+  .tv-fx::before { animation: none; }
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  .tv-fx { display: none; }
+  .viz svg { filter: none !important; }
+  .viz, .viz-card-inline { text-shadow: none; }
+}
+@media print {
+  .tv-fx { display: none; }
+  .viz svg { filter: none !important; }
+}

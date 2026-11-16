@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { REDUCED_QUERY } from '../lib/motion';
 import { haptic } from '../lib/haptics';
+import TvScreen from './TvScreen';
 
 /*
  * Army motion vocabulary, borrowed from ink-orbit-features and re-cut for Alésia:
@@ -94,6 +95,7 @@ export function Brackets() {
       <span className="brk brk-tr" aria-hidden="true" />
       <span className="brk brk-bl" aria-hidden="true" />
       <span className="brk brk-br" aria-hidden="true" />
+      <TvScreen />
     </>
   );
 }

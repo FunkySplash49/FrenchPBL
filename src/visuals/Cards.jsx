@@ -4,6 +4,7 @@ import Phrase from '../components/Phrase';
 import { useLang } from '../lib/lang';
 import { useScene, gsap, sceneTrigger, DUR, EASE } from '../lib/motion';
 import { Brackets } from './motionKit';
+import TvScreen from './TvScreen';
 
 /* Laurel medallion (Rome = square frame) and torque medallion (Gaul = round frame). */
 function RomanMedallion() {
@@ -101,6 +102,7 @@ export function VercingetorixCard() {
   ];
   return (
     <div className="viz-card viz-card-inline">
+      <TvScreen />
       <div className="card-head">
         <GaulMedallion />
         <div>

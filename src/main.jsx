@@ -2,7 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/tokens.css';
 import './styles/global.css';
+import './styles/viz-tv.css';
 import App from './App';
+import { installVizTv } from './lib/vizTv';
 
 /* Touch screens — phones, tablets and the classroom's Samsung touch monitor (which may
    also report a mouse, so CSS hover/pointer queries alone aren't reliable):
@@ -12,6 +14,8 @@ const q = new URLSearchParams(window.location.search).get('touch');
 const touch = q != null ? q !== '0'
   : (navigator.maxTouchPoints > 0 || window.matchMedia('(any-pointer: coarse)').matches);
 document.documentElement.classList.toggle('is-touch', touch);
+
+installVizTv(); // old-TV filters for the diagram boxes
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
