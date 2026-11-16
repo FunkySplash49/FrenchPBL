@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
 /*
- * Topic cards live at #/sujet/<id> so the browser Back button closes them
+ * Topic pages live at #/sujet/<id> so the browser Back button closes them
  * and a topic can be linked directly. `origin` (where the word was clicked)
- * lets the card grow out of the word itself.
+ * is where the camera dives in.
  */
 const PREFIX = '#/sujet/';
 let origin = null;

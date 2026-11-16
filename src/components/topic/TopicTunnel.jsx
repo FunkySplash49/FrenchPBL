@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import { animate, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 /*
  * Perspective tunnel, adapted from the 21st.dev "PerspectiveTunnelHero"
  * (golden-angle card layout + framer-motion z-travel + pointer parallax)
- * for this Vite/JS site: no Tailwind, DESIGN.md tokens, sized to its container
- * (it lives in the top of a pop-up card), and the flight loops on its own.
- * Wheel / drag over it scrubs the flight.
+ * for this Vite/JS site: no Tailwind, DESIGN.md tokens, sized to its container.
+ *
+ * `progress` is driven by the parent:
+ *   0 → 1   intro flight: cards leave the far end one after another and fly past the camera
+ *   1 → 3   ambient loop (repeats): cards keep drifting by behind the page title;
+ *           `ambient` (0 → 1) fades them back in after the intro
  */
 const SPRING = { stiffness: 60, damping: 25, mass: 0.5 };
-const LOOP_S = 16;
+const SPAN = 0.5;
 
 function useBox(ref) {
-  const [box, setBox] = useState({ width: 640, height: 300 });
+  const [box, setBox] = useState({ width: window.innerWidth, height: window.innerHeight });
   useEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
@@ -23,43 +26,45 @@ function useBox(ref) {
   return box;
 }
 
-function usePointer(ref, enabled) {
+function usePointer(enabled) {
   const rx = useMotionValue(0);
   const ry = useMotionValue(0);
   const x = useSpring(rx, SPRING);
   const y = useSpring(ry, SPRING);
   useEffect(() => {
-    const el = ref.current;
-    if (!enabled || !el) return undefined;
+    if (!enabled) return undefined;
     const on = (e) => {
       if (e.pointerType !== 'mouse') return;
-      const r = el.getBoundingClientRect();
-      rx.set(((e.clientX - r.left) / r.width - 0.5) * 2);
-      ry.set(((e.clientY - r.top) / r.height - 0.5) * 2);
+      rx.set((e.clientX / window.innerWidth - 0.5) * 2);
+      ry.set((e.clientY / window.innerHeight - 0.5) * 2);
     };
-    const off = () => { rx.set(0); ry.set(0); };
-    el.addEventListener('pointermove', on, { passive: true });
-    el.addEventListener('pointerleave', off);
-    return () => { el.removeEventListener('pointermove', on); el.removeEventListener('pointerleave', off); };
-  }, [ref, enabled, rx, ry]);
+    window.addEventListener('pointermove', on, { passive: true });
+    return () => window.removeEventListener('pointermove', on);
+  }, [enabled, rx, ry]);
   return { x, y };
 }
 
-function Card({ img, i, total, progress, pointer, box, onPick }) {
+function Card({ img, i, total, progress, ambient, pointer, box, onPick }) {
   const golden = i * 137.5 * (Math.PI / 180);
-  const rfx = 0.3 + (i % 3) * 0.06;
-  const rfy = 0.24 + (i % 2) * 0.08;
+  const rfx = 0.28 + (i % 3) * 0.08;
+  const rfy = 0.26 + (i % 2) * 0.09;
   const rot = (i % 2 === 0 ? 1 : -1) * (3 + (i % 5) * 2);
+  const mobile = box.width < 768;
+  const start = (i / total) * (1 - SPAN);
 
-  // each card enters at its own phase of the loop and wraps around
-  const phase = useTransform(progress, (p) => (p + i / total) % 1);
-  const z = useTransform(phase, [0, 1], [-1400, 380]);
-  const opacity = useTransform(phase, [0, 0.15, 0.82, 0.97], [0, 1, 1, 0]);
+  const phase = useTransform(progress, (p) => (p <= 1
+    ? Math.min(1, Math.max(0, (p - start) / SPAN))
+    : ((p - 1) * 0.5 + i / total) % 1));
+  const z = useTransform(phase, [0, 1], mobile ? [-1200, 350] : [-1700, 500]);
+  const opacity = useTransform([phase, progress, ambient], ([ph, p, a]) => {
+    const base = ph < 0.15 ? ph / 0.15 : ph > 0.82 ? Math.max(0, 1 - (ph - 0.82) / 0.16) : 1;
+    return p <= 1 ? base : base * a;
+  });
 
-  const w = Math.max(84, Math.min(150, box.width * 0.2));
+  const w = mobile ? Math.max(120, Math.min(170, box.width * 0.38)) : Math.max(170, Math.min(260, box.width * 0.18));
   const bx = Math.cos(golden) * box.width * rfx;
   const by = Math.sin(golden) * box.height * rfy;
-  const pan = 24;
+  const pan = mobile ? 20 : 45;
 
   const transform = useTransform([z, pointer.x, pointer.y], ([cz, px, py]) =>
     `translate3d(calc(-50% + ${bx - px * pan}px), calc(-50% + ${by - py * pan}px), ${cz}px) rotateZ(${rot}deg)`);
@@ -78,41 +83,10 @@ function Card({ img, i, total, progress, pointer, box, onPick }) {
   );
 }
 
-export default function TopicTunnel({ images, reduce, onPick }) {
+export default function TopicTunnel({ images, progress, ambient, reduce, onPick }) {
   const ref = useRef(null);
   const box = useBox(ref);
-  const pointer = usePointer(ref, !reduce);
-  const progress = useMotionValue(0);
-
-  // endless slow flight; wheel / drag nudges it
-  useEffect(() => {
-    if (reduce) return undefined;
-    let ctl;
-    const run = () => {
-      const from = progress.get() % 1;
-      progress.jump(from);
-      ctl = animate(progress, from + 1, { duration: LOOP_S, ease: 'linear', onComplete: run });
-    };
-    run();
-    const el = ref.current;
-    const nudge = (d) => { ctl?.stop(); progress.set(Math.max(0, progress.get() + d)); clearTimeout(nudge.t); nudge.t = setTimeout(run, 600); };
-    const onWheel = (e) => { e.preventDefault(); nudge(e.deltaY * 0.0006); };
-    let lastY = null;
-    const onDown = (e) => { lastY = e.clientY; };
-    const onMove = (e) => { if (lastY == null || e.pointerType === 'mouse') return; nudge((lastY - e.clientY) * 0.002); lastY = e.clientY; };
-    const onUp = () => { lastY = null; };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    el.addEventListener('pointerdown', onDown);
-    el.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    return () => {
-      ctl?.stop(); clearTimeout(nudge.t);
-      el.removeEventListener('wheel', onWheel);
-      el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-  }, [progress, reduce]);
+  const pointer = usePointer(!reduce);
 
   if (reduce) {
     return (
@@ -127,13 +101,13 @@ export default function TopicTunnel({ images, reduce, onPick }) {
   }
 
   return (
-    <div className="tt-stage" ref={ref} style={{ perspective: '800px' }}>
+    <div className="tt-stage" ref={ref} style={{ perspective: box.width < 768 ? '900px' : '1200px' }}>
       <div className="tt-grain" aria-hidden="true" />
       <div className="tt-ring tt-ring-a" aria-hidden="true" />
       <div className="tt-ring tt-ring-b" aria-hidden="true" />
       <div className="tt-space">
         {images.map((img, i) => (
-          <Card key={img.thumb} img={img} i={i} total={images.length} progress={progress} pointer={pointer} box={box} onPick={onPick} />
+          <Card key={img.thumb} img={img} i={i} total={images.length} progress={progress} ambient={ambient} pointer={pointer} box={box} onPick={onPick} />
         ))}
       </div>
     </div>

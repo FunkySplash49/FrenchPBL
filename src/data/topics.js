@@ -1407,5 +1407,527 @@ export const TOPICS = {
         "url": "https://en.wikipedia.org/wiki/Mont_Beuvray"
       }
     ]
+  },
+  "royer": {
+    "title": {
+      "fr": "Vercingétorix jette ses armes",
+      "en": "Vercingetorix Throws Down His Arms"
+    },
+    "kicker": {
+      "fr": "Image et mémoire",
+      "en": "Image and memory"
+    },
+    "intro": {
+      "fr": "En 1899, le peintre Lionel Royer présente une scène célèbre : la reddition de Vercingétorix devant César. Ce tableau a longtemps été reproduit dans les manuels d’histoire, et il montre comment la France du XIXe siècle imaginait ses origines.",
+      "en": "In 1899, the painter Lionel Royer presented a famous scene: Vercingetorix’s surrender before Caesar. The painting was reproduced for a long time in history textbooks, and it shows how 19th-century France imagined its origins."
+    },
+    "sections": [
+      {
+        "h": {
+          "fr": "Un tableau pour la IIIe République",
+          "en": "A painting for the Third Republic"
+        },
+        "p": {
+          "fr": "Lionel Royer (1852-1926) est un peintre d’histoire français, formé à l’École des beaux-arts de Paris. Son tableau, daté de 1899 et conservé au musée Crozatier, au Puy-en-Velay, a été très largement diffusé par les manuels d’histoire pendant plus d’un siècle. À cette époque, l’école apprend aux enfants que leurs « ancêtres » sont les Gaulois.",
+          "en": "Lionel Royer (1852–1926) was a French history painter trained at the Paris École des Beaux-Arts. Dated 1899 and kept at the Musée Crozatier in Le Puy-en-Velay, the painting was widely reproduced in French history textbooks for over a century. At that time, schoolchildren were taught that their “ancestors” were the Gauls."
+        }
+      },
+      {
+        "h": {
+          "fr": "Une scène qui ne s’est probablement pas passée ainsi",
+          "en": "A scene that probably did not happen this way"
+        },
+        "p": {
+          "fr": "Les historiens jugent la scène invraisemblable : Vercingétorix ne s’est certainement pas présenté armé devant César, car il aurait été massacré par la garde romaine. Le tableau procède sans doute d’une traduction inexacte d’un passage du récit de César, la Guerre des Gaules. Royer reprend aussi des images populaires du XIXe siècle, déjà diffusées une trentaine d’années plus tôt.",
+          "en": "Historians consider the scene implausible: Vercingetorix almost certainly did not come before Caesar armed, since he would have been killed by the Roman guard. The painting probably rests on a faulty translation of a passage in Caesar’s account, the Gallic War. Royer also borrows popular 19th-century images that had circulated about thirty years earlier."
+        }
+      },
+      {
+        "h": {
+          "fr": "Un héros pour la nation",
+          "en": "A hero for the nation"
+        },
+        "p": {
+          "fr": "Le tableau cherche surtout à héroïser Vercingétorix. Dans une France marquée par la défaite de 1870 face à l’Allemagne, ce chef qui accepte de se sacrifier pour son peuple peut servir d’exemple. L’image transmet donc une leçon morale plus qu’un récit exact de la bataille.",
+          "en": "The painting mainly aims to make Vercingetorix a heroic figure. In a France marked by its defeat against Germany in 1870, a leader who accepts sacrifice for his people could serve as an example. The image thus offers a moral lesson more than an exact account of the battle."
+        }
+      },
+      {
+        "h": {
+          "fr": "Comparer les images",
+          "en": "Comparing the images"
+        },
+        "p": {
+          "fr": "Le même sujet a été peint et gravé dans plusieurs pays. Henri-Paul Motte le représente en 1886, le peintre brésilien Firmino Monteiro la même année, et une gravure de la revue allemande Die Gartenlaube (1892) reprend le thème. Ces images montrent que la reddition dépassait largement la France, et que chaque artiste lui donnait sa propre mise en scène.",
+          "en": "The same subject was painted and engraved in several countries. Henri-Paul Motte depicted it in 1886, the Brazilian painter Firmino Monteiro the same year, and an engraving in the German magazine Die Gartenlaube (1892) also uses the theme. These images show that the surrender was a subject well beyond France, with each artist staging it in a different way."
+        }
+      }
+    ],
+    "facts": [
+      {
+        "label": {
+          "fr": "Peintre",
+          "en": "Painter"
+        },
+        "value": {
+          "fr": "Lionel Royer (1852-1926)",
+          "en": "Lionel Royer (1852–1926)"
+        }
+      },
+      {
+        "label": {
+          "fr": "Date",
+          "en": "Date"
+        },
+        "value": {
+          "fr": "1899",
+          "en": "1899"
+        }
+      },
+      {
+        "label": {
+          "fr": "Lieu de conservation",
+          "en": "Location"
+        },
+        "value": {
+          "fr": "Musée Crozatier, Le Puy-en-Velay",
+          "en": "Musée Crozatier, Le Puy-en-Velay"
+        }
+      },
+      {
+        "label": {
+          "fr": "Scène",
+          "en": "Scene"
+        },
+        "value": {
+          "fr": "Reddition de Vercingétorix devant César, après Alésia (52 av. J.-C.)",
+          "en": "Vercingetorix’s surrender before Caesar, after Alesia (52 BC)"
+        }
+      },
+      {
+        "label": {
+          "fr": "Fin de Vercingétorix",
+          "en": "Vercingetorix’s end"
+        },
+        "value": {
+          "fr": "Mort en 46 av. J.-C. dans une prison de Rome, après le triomphe de César",
+          "en": "Died in 46 BC in a Roman prison, after Caesar’s triumph"
+        }
+      }
+    ],
+    "images": [
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ae/Lionel_Royer_-_Vercingetorix_Throwing_down_His_Weapons_at_the_feet_of_Julius_Caesar.jpg/960px-Lionel_Royer_-_Vercingetorix_Throwing_down_His_Weapons_at_the_feet_of_Julius_Caesar.jpg",
+        "file": "Lionel_Royer_-_Vercingetorix_Throwing_down_His_Weapons_at_the_feet_of_Julius_Caesar.jpg",
+        "caption": {
+          "fr": "Lionel Royer, « Vercingétorix jette ses armes aux pieds de Jules César » (1899)",
+          "en": "Lionel Royer, “Vercingetorix Throws Down His Weapons at the Feet of Julius Caesar” (1899)"
+        },
+        "license": "Public domain"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/02/Vercing%C3%A9torix_se_rend_%C3%A0_C%C3%A9sar_1886_HPMotte.jpg/960px-Vercing%C3%A9torix_se_rend_%C3%A0_C%C3%A9sar_1886_HPMotte.jpg",
+        "file": "Vercingétorix_se_rend_à_César_1886_HPMotte.jpg",
+        "caption": {
+          "fr": "Henri-Paul Motte, « Vercingétorix se rend à César » (1886)",
+          "en": "Henri-Paul Motte, “Vercingétorix se rend à César” (1886)"
+        },
+        "license": "Public domain"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/76/Firmino_Monteiro_-_Vercingetorix_diante_de_J%C3%BAlio_C%C3%A9sar_%281886%29.jpg/960px-Firmino_Monteiro_-_Vercingetorix_diante_de_J%C3%BAlio_C%C3%A9sar_%281886%29.jpg",
+        "file": "Firmino_Monteiro_-_Vercingetorix_diante_de_Júlio_César_(1886).jpg",
+        "caption": {
+          "fr": "Firmino Monteiro, Vercingétorix devant Jules César (1886), huile sur toile",
+          "en": "Firmino Monteiro, Vercingetorix Before Julius Caesar (1886), oil on canvas"
+        },
+        "license": "Public domain"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/69/Die_Gartenlaube_%281892%29_397_cropped.jpg/960px-Die_Gartenlaube_%281892%29_397_cropped.jpg",
+        "file": "Die_Gartenlaube_(1892)_397_cropped.jpg",
+        "caption": {
+          "fr": "Gravure de la revue allemande Die Gartenlaube (1892) sur le même thème",
+          "en": "Engraving from the German magazine Die Gartenlaube (1892) on the same theme"
+        },
+        "license": "CC BY-SA 4.0"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Wikipédia (fr) – Lionel Royer",
+        "url": "https://fr.wikipedia.org/wiki/Lionel_Royer"
+      },
+      {
+        "label": "Wikipédia (fr) – Vercingétorix",
+        "url": "https://fr.wikipedia.org/wiki/Vercing%C3%A9torix"
+      }
+    ]
+  },
+  "statue": {
+    "title": {
+      "fr": "La statue d’Alise-Sainte-Reine",
+      "en": "The Alise-Sainte-Reine Statue"
+    },
+    "kicker": {
+      "fr": "Un monument de 1865",
+      "en": "A monument from 1865"
+    },
+    "intro": {
+      "fr": "Sur le mont Auxois, une statue de cuivre géante représente Vercingétorix depuis 1865. Voulue par Napoléon III et sculptée par Aimé Millet, elle montre comment le XIXe siècle a fait de ce chef gaulois un symbole national.",
+      "en": "On the Mont Auxois, a giant copper statue has represented Vercingetorix since 1865. Commissioned by Napoleon III and sculpted by Aimé Millet, it shows how the 19th century turned this Gallic leader into a national symbol."
+    },
+    "sections": [
+      {
+        "h": {
+          "fr": "Un monument voulu par l’Empereur",
+          "en": "A monument commissioned by the Emperor"
+        },
+        "p": {
+          "fr": "La statue domine depuis 1865 le village d’Alise-Sainte-Reine, situé sur le site traditionnellement identifié à Alésia. Le socle de 7 m de haut, en granit et en pierre, est dessiné par l’architecte Eugène Viollet-le-Duc. Il porte l’inscription « Napoléon III, empereur des Français, à la mémoire de Vercingétorix » : le monument est donc un acte politique autant qu’un hommage.",
+          "en": "Since 1865 the statue has overlooked the village of Alise-Sainte-Reine, on the site traditionally identified with Alesia. The 7 m pedestal, made of granite and stone, was designed by the architect Eugène Viollet-le-Duc. It bears the inscription “Napoléon III, empereur des Français, à la mémoire de Vercingétorix” (“Napoleon III, Emperor of the French, in memory of Vercingetorix”), so the monument is as much a political act as a tribute."
+        }
+      },
+      {
+        "h": {
+          "fr": "Une statue en cuivre de 6,60 m",
+          "en": "A 6.60 m copper statue"
+        },
+        "p": {
+          "fr": "La statue elle-même mesure 6,60 m et pèse environ cinq tonnes. Elle est creuse : c’est une enveloppe de tôles de cuivre battues et repoussées, fixée sur une structure de poutrelles, une technique comparable à celle de la statue de la Liberté à New York. Sa grande taille vise à frapper les esprits.",
+          "en": "The statue itself is 6.60 m tall and weighs about five tonnes. It is hollow: a shell of hammered and shaped copper sheets fixed to a framework of beams, a technique similar to that of the Statue of Liberty in New York. Its great size is meant to impress viewers."
+        }
+      },
+      {
+        "h": {
+          "fr": "Un guerrier aux traits inventés",
+          "en": "A warrior with invented features"
+        },
+        "p": {
+          "fr": "Au XIXe siècle, le guerrier gaulois est souvent représenté avec un casque et une grande moustache, et ces traits se retrouvent dans les statues, les images et les livres. Les historiens rappellent pourtant que les casques ailés et les grandes moustaches sont en grande partie des inventions de cette époque. Une statue peut donc transmettre une image très forte, sans être fidèle au passé.",
+          "en": "In the 19th century the Gallic warrior was often shown with a helmet and a large moustache, and these features appear in statues, images and books. Historians point out, however, that winged helmets and large moustaches are largely inventions of that period. A statue can therefore convey a very strong image without being faithful to the past."
+        }
+      },
+      {
+        "h": {
+          "fr": "« Nos ancêtres les Gaulois »",
+          "en": "“Our ancestors the Gauls”"
+        },
+        "p": {
+          "fr": "La formule « nos ancêtres les Gaulois », popularisée par les manuels scolaires de la IIIe République, fait des Gaulois les origines de la nation française. L’inscription du bandeau, « La Gaule unie, formant une seule nation… », s’inspire d’un discours de Vercingétorix rapporté par César, mais son vocabulaire de nation est celui du XIXe siècle. Ce choix montre comment le passé peut servir à construire une identité.",
+          "en": "The phrase “nos ancêtres les Gaulois” (“our ancestors the Gauls”), popularised by school textbooks of the Third Republic, presents the Gauls as the origin of the French nation. The bronze band on the monument reads “La Gaule unie, formant une seule nation…” (“Gaul united, forming a single nation…”), which is inspired by a speech of Vercingetorix reported by Caesar, but its vocabulary of nation belongs to the 19th century. This choice shows how the past can be used to build an identity."
+        }
+      }
+    ],
+    "facts": [
+      {
+        "label": {
+          "fr": "Inauguration",
+          "en": "Unveiled"
+        },
+        "value": {
+          "fr": "1865",
+          "en": "1865"
+        }
+      },
+      {
+        "label": {
+          "fr": "Hauteur de la statue",
+          "en": "Height of the statue"
+        },
+        "value": {
+          "fr": "6,60 m (socle de 7 m)",
+          "en": "6.60 m (pedestal 7 m)"
+        }
+      },
+      {
+        "label": {
+          "fr": "Poids",
+          "en": "Weight"
+        },
+        "value": {
+          "fr": "Environ 5 tonnes",
+          "en": "About 5 tonnes"
+        }
+      },
+      {
+        "label": {
+          "fr": "Matériau",
+          "en": "Material"
+        },
+        "value": {
+          "fr": "Tôles de cuivre battues et repoussées",
+          "en": "Hammered and shaped copper sheets"
+        }
+      },
+      {
+        "label": {
+          "fr": "Commande et sculpteur",
+          "en": "Commissioned by / sculptor"
+        },
+        "value": {
+          "fr": "Napoléon III ; Aimé Millet",
+          "en": "Napoleon III; Aimé Millet"
+        }
+      }
+    ],
+    "images": [
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/Alise-Sainte-Reine_statue_Vercingetorix_par_Millet_large.jpg/960px-Alise-Sainte-Reine_statue_Vercingetorix_par_Millet_large.jpg",
+        "file": "Alise-Sainte-Reine_statue_Vercingetorix_par_Millet_large.jpg",
+        "caption": {
+          "fr": "La statue d’Aimé Millet dominant le village d’Alise-Sainte-Reine",
+          "en": "Aimé Millet’s statue overlooking the village of Alise-Sainte-Reine"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a2/Alise-Sainte-Reine_statue_Vercingetorix_par_Millet_2.jpg/960px-Alise-Sainte-Reine_statue_Vercingetorix_par_Millet_2.jpg",
+        "file": "Alise-Sainte-Reine_statue_Vercingetorix_par_Millet_2.jpg",
+        "caption": {
+          "fr": "La statue de Millet, autre cliché",
+          "en": "Millet’s statue, another view"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/48/AliseSteReine-StatueVercingetorix2021.jpg/960px-AliseSteReine-StatueVercingetorix2021.jpg",
+        "file": "AliseSteReine-StatueVercingetorix2021.jpg",
+        "caption": {
+          "fr": "La statue de Vercingétorix sur le mont Auxois, photographiée en 2021",
+          "en": "The Vercingetorix statue on the Mont Auxois, photographed in 2021"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/82/The_colossal_statue_of_Vercingetorix%2C_Alesia_%2813178002504%29.jpg/960px-The_colossal_statue_of_Vercingetorix%2C_Alesia_%2813178002504%29.jpg",
+        "file": "The_colossal_statue_of_Vercingetorix,_Alesia_(13178002504).jpg",
+        "caption": {
+          "fr": "La statue colossale de Vercingétorix à Alise-Sainte-Reine",
+          "en": "The colossal statue of Vercingetorix at Alise-Sainte-Reine"
+        },
+        "license": "CC BY-SA 2.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Alise-Sainte-Reine_-_Statue_de_Vercing%C3%A9torix_-_01.jpg/960px-Alise-Sainte-Reine_-_Statue_de_Vercing%C3%A9torix_-_01.jpg",
+        "file": "Alise-Sainte-Reine_-_Statue_de_Vercingétorix_-_01.jpg",
+        "caption": {
+          "fr": "Vue de la statue sur son socle",
+          "en": "View of the statue on its pedestal"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6b/Vercing%C3%A9torix_par_Millet.jpg/960px-Vercing%C3%A9torix_par_Millet.jpg",
+        "file": "Vercingétorix_par_Millet.jpg",
+        "caption": {
+          "fr": "Détail : la statue est faite de tôles de cuivre battues et repoussées",
+          "en": "Detail: the statue is made of hammered and shaped copper sheets"
+        },
+        "license": "CC BY-SA 3.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b2/Engraving_of_Vercingetorix_statue.jpg/960px-Engraving_of_Vercingetorix_statue.jpg",
+        "file": "Engraving_of_Vercingetorix_statue.jpg",
+        "caption": {
+          "fr": "Gravure de la statue publiée dans Le Magasin pittoresque (XIXe siècle)",
+          "en": "Engraving of the statue published in Le Magasin pittoresque (19th century)"
+        },
+        "license": "Public domain"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Wikipédia (fr) – Monument à Vercingétorix (Millet)",
+        "url": "https://fr.wikipedia.org/wiki/Monument_%C3%A0_Vercing%C3%A9torix_(Millet)"
+      },
+      {
+        "label": "Wikipédia (fr) – Aimé Millet",
+        "url": "https://fr.wikipedia.org/wiki/Aim%C3%A9_Millet"
+      }
+    ]
+  },
+  "museoparc": {
+    "title": {
+      "fr": "MuséoParc Alésia",
+      "en": "MuséoParc Alésia"
+    },
+    "kicker": {
+      "fr": "Un musée sur le site",
+      "en": "A museum on the site"
+    },
+    "intro": {
+      "fr": "Ouvert en 2012 sur le mont Auxois, le MuséoParc Alésia réunit un bâtiment circulaire, un parcours d’exposition et des fortifications romaines reconstituées. Le lieu raconte la bataille à partir des textes antiques et des recherches archéologiques.",
+      "en": "Opened in 2012 on the Mont Auxois, the MuséoParc Alésia combines a circular building, an exhibition route and reconstructed Roman fortifications. The site tells the story of the battle using ancient texts and archaeological research."
+    },
+    "sections": [
+      {
+        "h": {
+          "fr": "Un site entre histoire et légende",
+          "en": "A site between history and legend"
+        },
+        "p": {
+          "fr": "Le MuséoParc se trouve à Alise-Sainte-Reine, sur le site traditionnellement identifié à Alésia. Cette identification est aujourd’hui la plus suivie, mais certains chercheurs la discutent encore. Le musée présente donc une hypothèse scientifique, et non une certitude.",
+          "en": "The MuséoParc is in Alise-Sainte-Reine, on the site traditionally identified with Alesia. This identification is the most widely accepted today, but some researchers still debate it. The museum therefore presents a scientific hypothesis rather than a certainty."
+        }
+      },
+      {
+        "h": {
+          "fr": "Un bâtiment rond inspiré des remparts",
+          "en": "A round building inspired by the ramparts"
+        },
+        "p": {
+          "fr": "Le bâtiment, conçu par l’agence de Bernard Tschumi, est un cylindre d’environ 52 m de diamètre. Il est habillé d’une résille de bois de mélèze qui évoque la structure des fortifications, et une rampe en spirale conduit les visiteurs d’un niveau à l’autre. Le lieu est donc à la fois un musée et une œuvre d’architecture contemporaine.",
+          "en": "The building, designed by Bernard Tschumi’s practice, is a cylinder about 52 m in diameter. It is clad in a lattice of larch wood that recalls the structure of fortifications, and a spiral ramp takes visitors from one level to the next. The site is therefore both a museum and a work of contemporary architecture."
+        }
+      },
+      {
+        "h": {
+          "fr": "Des fortifications reconstituées",
+          "en": "Reconstructed fortifications"
+        },
+        "p": {
+          "fr": "À l’extérieur, sur un terrain d’environ 6 500 m², une centaine de mètres de doubles fortifications romaines ont été reconstituées, avec fossés, remblais, palissades et tours de guet. Ces lignes montrent comment les Romains ont encerclé la ville assiégée et se sont protégés contre une armée de secours. La reconstitution reste toutefois une interprétation.",
+          "en": "Outside, on a site of about 6,500 m², about a hundred metres of double Roman fortifications have been rebuilt, with ditches, earth banks, palisades and watchtowers. These lines show how the Romans encircled the besieged town and protected themselves against a relief army. The reconstruction remains, however, an interpretation."
+        }
+      },
+      {
+        "h": {
+          "fr": "Le récit de César en question",
+          "en": "Caesar’s account under scrutiny"
+        },
+        "p": {
+          "fr": "Dans l’exposition, les visiteurs découvrent les Commentaires sur la guerre des Gaules, rédigés par César vers 50 av. J.-C. Le musée présente ce texte comme une source précieuse, mais aussi comme un récit partial, écrit pour mettre en valeur le chef romain. Le visiteur est donc invité à lire César avec esprit critique, comme le ferait un historien.",
+          "en": "In the exhibition, visitors can see Caesar’s Commentaries on the Gallic War, written around 50 BC. The museum presents the text as a valuable source but also as a partial account, written to showcase the Roman commander. Visitors are therefore invited to read Caesar with a critical eye, as a historian would."
+        }
+      }
+    ],
+    "facts": [
+      {
+        "label": {
+          "fr": "Ouverture",
+          "en": "Opened"
+        },
+        "value": {
+          "fr": "2012 (centre d’interprétation) ; parcours renouvelé en 2021",
+          "en": "2012 (interpretation centre); route renewed in 2021"
+        }
+      },
+      {
+        "label": {
+          "fr": "Architecte",
+          "en": "Architect"
+        },
+        "value": {
+          "fr": "Bernard Tschumi",
+          "en": "Bernard Tschumi"
+        }
+      },
+      {
+        "label": {
+          "fr": "Bâtiment",
+          "en": "Building"
+        },
+        "value": {
+          "fr": "Cylindre d’environ 52 m de diamètre",
+          "en": "Cylinder about 52 m in diameter"
+        }
+      },
+      {
+        "label": {
+          "fr": "Fortifications reconstituées",
+          "en": "Reconstructed fortifications"
+        },
+        "value": {
+          "fr": "Environ 100 m de doubles lignes romaines",
+          "en": "About 100 m of double Roman lines"
+        }
+      },
+      {
+        "label": {
+          "fr": "Propriétaire",
+          "en": "Owner"
+        },
+        "value": {
+          "fr": "Conseil départemental de la Côte-d’Or",
+          "en": "Côte-d’Or departmental council"
+        }
+      }
+    ],
+    "images": [
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a8/Mus%C3%A9oParc_Al%C3%A9sia_01.jpg/960px-Mus%C3%A9oParc_Al%C3%A9sia_01.jpg",
+        "file": "MuséoParc_Alésia_01.jpg",
+        "caption": {
+          "fr": "Le bâtiment rond du MuséoParc, vu depuis la prairie",
+          "en": "The round MuséoParc building, seen from the meadow"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/89/Mus%C3%A9oParc_Al%C3%A9sia_03.jpg/960px-Mus%C3%A9oParc_Al%C3%A9sia_03.jpg",
+        "file": "MuséoParc_Alésia_03.jpg",
+        "caption": {
+          "fr": "La rampe en spirale à l’intérieur du bâtiment",
+          "en": "The spiral ramp inside the building"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a4/Mus%C3%A9oParc_Al%C3%A9sia_13.jpg/960px-Mus%C3%A9oParc_Al%C3%A9sia_13.jpg",
+        "file": "MuséoParc_Alésia_13.jpg",
+        "caption": {
+          "fr": "Vitrine consacrée aux Commentaires sur la guerre des Gaules de César",
+          "en": "Display on Caesar’s Commentaries on the Gallic War"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d1/Mus%C3%A9oParc_Al%C3%A9sia_30.jpg/960px-Mus%C3%A9oParc_Al%C3%A9sia_30.jpg",
+        "file": "MuséoParc_Alésia_30.jpg",
+        "caption": {
+          "fr": "Panneau de l’exposition : « Et Alésia devient romaine »",
+          "en": "Exhibition panel: “And Alesia Becomes Roman”"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3b/Reconstitution_des_fortifications_avec_les_tentes_romaines_%C2%A9_Viviane_Raveneau.jpg/960px-Reconstitution_des_fortifications_avec_les_tentes_romaines_%C2%A9_Viviane_Raveneau.jpg",
+        "file": "Reconstitution_des_fortifications_avec_les_tentes_romaines_©_Viviane_Raveneau.jpg",
+        "caption": {
+          "fr": "Campement romain entre les deux lignes de fortifications reconstituées",
+          "en": "Roman camp between the reconstructed double lines of fortifications"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/df/Alise-Sainte-Reine_-_Contrevallation.jpg/960px-Alise-Sainte-Reine_-_Contrevallation.jpg",
+        "file": "Alise-Sainte-Reine_-_Contrevallation.jpg",
+        "caption": {
+          "fr": "Reconstitution de la contrevallation romaine au MuséoParc",
+          "en": "Reconstruction of the Roman contravallation at the MuséoParc"
+        },
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cb/The_space_between_two_fortification_lines_with_a_reconstitution_of_a_camp%2C_Alesia_%287700330258%29.jpg/960px-The_space_between_two_fortification_lines_with_a_reconstitution_of_a_camp%2C_Alesia_%287700330258%29.jpg",
+        "file": "The_space_between_two_fortification_lines_with_a_reconstitution_of_a_camp,_Alesia_(7700330258).jpg",
+        "caption": {
+          "fr": "L’espace entre les deux lignes, avec la reconstitution d’un camp",
+          "en": "The space between the two lines, with a reconstructed camp"
+        },
+        "license": "CC BY-SA 2.0"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Wikipédia (fr) – MuséoParc Alésia",
+        "url": "https://fr.wikipedia.org/wiki/Mus%C3%A9oParc_Al%C3%A9sia"
+      },
+      {
+        "label": "Wikipédia (fr) – Siège d’Alésia",
+        "url": "https://fr.wikipedia.org/wiki/Si%C3%A8ge_d%27Al%C3%A9sia"
+      }
+    ]
   }
 };

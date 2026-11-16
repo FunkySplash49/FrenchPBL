@@ -11,8 +11,8 @@ import { openTopic } from '../../lib/topic';
  * (Radix hover card + framer-motion spring + mouse-follow drift) for this
  * Vite/JS project: no Next.js Image/Link, no screenshot API — curated Wikimedia pictures.
  *
- * Mouse: hover opens the picture card, click opens the word's pop-up topic card (#/sujet/<id>).
- * Touch: first tap opens the card (with a haptic tick), second tap opens the topic card.
+ * Mouse: hover opens the picture card, click opens the word's own page (camera dive, lib/dive.js) (#/sujet/<id>).
+ * Touch: first tap opens the card (with a haptic tick), second tap opens its page.
  */
 const preloaded = new Set();
 const preload = (src) => {
@@ -81,7 +81,7 @@ export function LinkPreview({ id, children }) {
         >
           {children}
           <span className="lp-arrow" aria-hidden="true">→</span>
-          <span className="sr-only">{lang === 'en' ? ' (opens a card about it)' : ' (ouvre une fiche)'}</span>
+          <span className="sr-only">{lang === 'en' ? ' (opens its page)' : ' (ouvre sa page)'}</span>
         </a>
       </HoverCard.Trigger>
       <HoverCard.Portal>
@@ -92,7 +92,7 @@ export function LinkPreview({ id, children }) {
           collisionPadding={12}
           className="lp-content"
           onPointerDownOutside={(e) => {
-            // a second tap on the word itself should open the topic card, not close the card
+            // a second tap on the word itself should open its page, not close the card
             if (triggerRef.current?.contains(e.target)) e.preventDefault();
           }}
         >
