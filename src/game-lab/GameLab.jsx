@@ -27,7 +27,7 @@ export default function GameLab() {
   return (
     <div className="lab">
       <header className="lab-head">
-        <a className="wordmark-sm lab-home" href="./">Alésia</a>
+        <a className="wordmark-sm lab-home" href="https://alesia-story.vercel.app/">Alésia</a>
         <p className="lab-kicker">Game Lab · {GAMES.length} {t({ fr: 'prototypes', en: 'prototypes' })}</p>
         <button type="button" className="lang-btn" onClick={() => { haptic('light'); cycle(); }}>
           <Languages size={20} strokeWidth={1.75} aria-hidden="true" />
