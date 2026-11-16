@@ -80,6 +80,11 @@ export default function Outro({ onActive, onTop }) {
             </ol>
             <p className="credits">
               {en
+                ? 'Portraits on the cards: Julius Caesar, marble bust, Metropolitan Museum of Art (CC0); gold stater of the Arverni with Vercingétorix’s name, BnF / Gallica (public domain). Map geography: Natural Earth (public domain).'
+                : 'Portraits des cartes : Jules César, buste en marbre, Metropolitan Museum of Art (CC0) ; statère d’or arverne au nom de Vercingétorix, BnF / Gallica (domaine public). Géographie des cartes : Natural Earth (domaine public).'}
+            </p>
+            <p className="credits">
+              {en
                 ? 'Shown cropped and recoloured through an old-TV effect. Files and full credits: Wikimedia Commons (number = step of the story, 0 = title).'
                 : 'Affichées recadrées et recolorées par un effet « vieille télé ». Fichiers et crédits complets : Wikimedia Commons (numéro = étape du récit, 0 = titre).'}
             </p>

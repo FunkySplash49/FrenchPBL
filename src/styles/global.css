@@ -238,7 +238,7 @@ kbd {
   border-radius: var(--radius-md); padding: var(--space-5);
   display: grid; gap: var(--space-4);
 }
-.viz svg:not(.lucide):not(.medallion) { width: 100%; height: auto; }
+.viz svg:not(.lucide):not(.medallion):not(.locator) { width: 100%; height: auto; }
 .lucide { flex: none; }
 .map-svg { aspect-ratio: 400 / 420; max-height: 68vh; }
 .plan-svg { aspect-ratio: 600 / 440; }
@@ -844,3 +844,31 @@ html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
   .plan-svg .hud-rec { animation: hud-blink 1.6s steps(1, end) infinite; }
 }
 @keyframes hud-blink { 50% { opacity: 0.2; } }
+
+/* period portraits on the cards + the real statue photo (engraved look: static filter) */
+.portrait { display: block; overflow: hidden; position: relative; }
+.portrait img { width: 100%; height: 100%; object-fit: cover; display: block; filter: sepia(0.55) contrast(1.15) brightness(0.92) saturate(0.9); }
+.portrait-rome { border-radius: 6px; box-shadow: 0 0 0 2px var(--rome-text), 0 0 14px rgb(240 106 90 / 0.25); }
+.portrait-gaul { border-radius: 50%; box-shadow: 0 0 0 2px var(--gaul-text), 0 0 14px rgb(125 192 138 / 0.25); }
+.portrait-gaul img { transform: scale(1.18); }
+.portrait::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgb(18 10 6 / 0.18) 0 1px, transparent 1px 3px); }
+.statue-photo { display: block; width: 100%; max-width: 9rem; aspect-ratio: 3 / 4.4; border-radius: var(--radius-sm); overflow: hidden; position: relative;
+  box-shadow: 0 0 0 1px rgb(247 236 214 / 0.18), 0 10px 30px rgb(0 0 0 / 0.4); }
+.statue-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 30% 36%; filter: sepia(0.5) contrast(1.15) brightness(0.9); }
+.statue-photo::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgb(18 10 6 / 0.16) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 55%, rgb(18 10 6 / 0.55)); }
+
+/* beat 8: Gergovie locator (real coastline) + engraved hatching on the chart */
+.fx-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.viz .locator { width: 92px; height: auto; flex: none; margin-top: -4px; }
+.loc-land-out { fill: var(--ink-800); }
+.loc-land { fill: var(--ink-700); fill: color-mix(in srgb, var(--ink-700) 75%, var(--amber-300)); }
+.loc-coast { fill: none; stroke: rgb(247 236 214 / 0.35); stroke-width: 2; }
+.locator .reticle .ret-ring, .locator .reticle .ret-tick { stroke-width: 3; }
+.loc-dot { fill: var(--parchment-50); opacity: 0.7; }
+.loc-label { font-family: var(--font-display); font-size: 30px; font-weight: 600; letter-spacing: 0.06em; fill: var(--parchment-50); paint-order: stroke; stroke: rgb(18 10 6 / 0.85); stroke-width: 8px; }
+.loc-label-dim { fill: var(--text-muted); font-size: 24px; }
+.fx-hatch { opacity: 0.6; pointer-events: none; }
+.fx-hatch-rome { stroke: var(--rome-400); stroke-width: 0.8; }
+.fx-hatch-gaul { stroke: var(--gaul-400); stroke-width: 0.8; }

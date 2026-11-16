@@ -40,20 +40,13 @@ const QUESTION = {
   say: 'vair-san-zhay-toh-reeks ah pair-dew lah bah-tah-yuh. pour-kwah lah frahns ahn ah-tay-ell feh uhn ay-roh ?',
 };
 
+// the real statue (Aimé Millet, 1865) — photo: Myrabella, CC BY-SA 4.0 (same file as the
+// sources-step backdrop, credited in the Sources section)
 function Statue() {
   return (
-    <svg viewBox="0 0 120 200" className="statue" aria-hidden="true">
-      {/* plinth */}
-      <rect x="22" y="160" width="76" height="34" rx="2" className="plinth" />
-      <rect x="30" y="150" width="60" height="12" rx="2" className="plinth" />
-      {/* figure: leaning on a long sword, long hair and moustache — stylised */}
-      <path d="M44,150 L50,96 C46,88 46,74 52,66 L68,66 C74,74 74,88 70,96 L76,150 Z" className="figure" />
-      <circle cx="60" cy="54" r="12" className="figure" />
-      <path d="M48,52 C46,64 50,72 54,74 M72,52 C74,64 70,72 66,74" className="hair" />
-      <line x1="84" y1="78" x2="84" y2="150" className="sword" />
-      <line x1="78" y1="84" x2="90" y2="84" className="sword" />
-      <path d="M68,82 L84,80" className="hair" />
-    </svg>
+    <span className="statue statue-photo" aria-hidden="true">
+      <img src={`${import.meta.env.BASE_URL}scenes/13-sources.jpg`} alt="" decoding="async" loading="lazy" />
+    </span>
   );
 }
 

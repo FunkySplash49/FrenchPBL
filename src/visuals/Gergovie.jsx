@@ -3,6 +3,7 @@ import { useLang, pick } from '../lib/lang';
 import { useScene, gsap, sceneTrigger, DUR, EASE } from '../lib/motion';
 import { haptic } from '../lib/haptics';
 import { Brackets } from './motionKit';
+import { LAND, GAUL, PLACES } from '../data/gaul';
 
 /*
  * Beat 8 — the fortunes of war in 52 BC, as a chart you can scrub
@@ -89,7 +90,25 @@ export default function Gergovie() {
   return (
     <figure className="viz viz-gergovie" ref={ref}>
       <Brackets />
-      <p className="viz-title">{en ? 'Fortunes of war, 52 BC' : 'Le sort de la guerre en 52 av. J.-C.'}</p>
+      <div className="fx-head">
+        <p className="viz-title">{en ? 'Fortunes of war, 52 BC' : 'Le sort de la guerre en 52 av. J.-C.'}</p>
+        {/* where Gergovie is: real coastline (same map data as the Gaul map) */}
+        <svg viewBox="16 20 354 360" className="locator" role="img"
+          aria-label={en ? 'Locator: Gergovie, in the Arverni’s land, near today’s Clermont-Ferrand' : 'Localisation : Gergovie, chez les Arvernes, près de l’actuelle Clermont-Ferrand'}>
+          <defs><clipPath id={`${uid}-gaul`}><path d={GAUL} /></clipPath></defs>
+          <path d={LAND} className="loc-land-out" />
+          <path d={LAND} className="loc-land" clipPath={`url(#${uid}-gaul)`} />
+          <path d={LAND} className="loc-coast" />
+          <g transform={`translate(${PLACES.gergovie.x} ${PLACES.gergovie.y})`} className="reticle">
+            <circle r="13" className="ret-ring" />
+            <path d="M-24,0 h10 M14,0 h10 M0,-24 v10 M0,14 v10" className="ret-tick" />
+            <circle r="3.5" className="ret-dot" />
+          </g>
+          <text x={PLACES.gergovie.x - 26} y={PLACES.gergovie.y + 42} textAnchor="end" className="loc-label">Gergovie</text>
+          <circle cx={PLACES.alesia.x} cy={PLACES.alesia.y} r="4" className="loc-dot" />
+          <text x={PLACES.alesia.x + 9} y={PLACES.alesia.y - 6} className="loc-label loc-label-dim">Alésia</text>
+        </svg>
+      </div>
 
       <svg
         viewBox={`0 0 ${W} ${H}`}
@@ -108,10 +127,19 @@ export default function Gergovie() {
         <defs>
           <clipPath id={`${uid}-top`}><rect x="0" y="0" width={W} height={MID} /></clipPath>
           <clipPath id={`${uid}-bot`}><rect x="0" y={MID} width={W} height={MID} /></clipPath>
+          {/* engraved look: diagonal hatching over the fills */}
+          <pattern id={`${uid}-hatch-r`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+            <line x1="0" y1="0" x2="0" y2="4" className="fx-hatch-rome" />
+          </pattern>
+          <pattern id={`${uid}-hatch-g`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+            <line x1="0" y1="0" x2="0" y2="4" className="fx-hatch-gaul" />
+          </pattern>
         </defs>
         {[0.25, 0.75].map((g) => <line key={g} x1={PAD} x2={W - PAD} y1={H * g} y2={H * g} className="fx-grid" />)}
         <path d={AREA} className="fx-area fx-area-rome" clipPath={`url(#${uid}-top)`} />
         <path d={AREA} className="fx-area fx-area-gaul" clipPath={`url(#${uid}-bot)`} />
+        <path d={AREA} fill={`url(#${uid}-hatch-r)`} clipPath={`url(#${uid}-top)`} className="fx-hatch" />
+        <path d={AREA} fill={`url(#${uid}-hatch-g)`} clipPath={`url(#${uid}-bot)`} className="fx-hatch" />
         <line x1={PAD} x2={W - PAD} y1={MID} y2={MID} className="fx-zero" />
         <text x={PAD} y={PAD - 4} className="fx-axis">{en ? '▲ Rome ahead' : '▲ Rome en tête'}</text>
         <text x={PAD} y={H - 4} className="fx-axis">{en ? '▼ Gaul ahead' : '▼ la Gaule en tête'}</text>

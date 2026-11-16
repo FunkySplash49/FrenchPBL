@@ -6,36 +6,26 @@ import { useScene, gsap, sceneTrigger, DUR, EASE } from '../lib/motion';
 import { Brackets } from './motionKit';
 import TvScreen from './TvScreen';
 
-/* Laurel medallion (Rome = square frame) and torque medallion (Gaul = round frame). */
+/*
+ * Portraits from the period, engraved-looking (static CSS filter): Rome = square frame,
+ * Gaul = round frame. Caesar: marble bust, Metropolitan Museum (CC0). Vercingétorix:
+ * a gold stater of the Arverni bearing his name (BnF / Gallica, public domain) — the
+ * only image of him made in his lifetime. Credits in the Sources section (Outro).
+ */
+const BASE = import.meta.env.BASE_URL;
 function RomanMedallion() {
   return (
-    <svg viewBox="0 0 120 120" className="medallion" aria-hidden="true">
-      <rect x="6" y="6" width="108" height="108" rx="6" className="med-frame-rome" />
-      {Array.from({ length: 7 }, (_, i) => {
-        const a = (200 + i * 20) * (Math.PI / 180);
-        const x = 60 + 38 * Math.cos(a);
-        const y = 64 + 38 * Math.sin(a);
-        return (
-          <g key={i}>
-            <ellipse cx={x} cy={y} rx="4" ry="9" transform={`rotate(${200 + i * 20 + 90} ${x} ${y})`} className="laurel" />
-            <ellipse cx={120 - x} cy={y} rx="4" ry="9" transform={`rotate(${-(200 + i * 20 + 90)} ${120 - x} ${y})`} className="laurel" />
-          </g>
-        );
-      })}
-      <text x="60" y="70" textAnchor="middle" className="med-text">CAESAR</text>
-    </svg>
+    <span className="medallion portrait portrait-rome" aria-hidden="true">
+      <img src={`${BASE}cards/caesar.jpg`} alt="" width="76" height="76" decoding="async" loading="lazy" />
+    </span>
   );
 }
 
 function GaulMedallion() {
   return (
-    <svg viewBox="0 0 120 120" className="medallion" aria-hidden="true">
-      <circle cx="60" cy="60" r="54" className="med-frame-gaul" />
-      <path d="M28,72 C34,40 86,40 92,72" className="torque" />
-      <circle cx="28" cy="74" r="6" className="torque-end" />
-      <circle cx="92" cy="74" r="6" className="torque-end" />
-      <text x="60" y="64" textAnchor="middle" className="med-text med-text-sm">VERCINGETORIXS</text>
-    </svg>
+    <span className="medallion portrait portrait-gaul" aria-hidden="true">
+      <img src={`${BASE}cards/vercingetorix.jpg`} alt="" width="76" height="76" decoding="async" loading="lazy" />
+    </span>
   );
 }
 
