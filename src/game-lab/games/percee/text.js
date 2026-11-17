@@ -66,6 +66,32 @@ export const BIG_LABELS = {
   move: { fr: 'Déplacer la console', en: 'Move the console' },
 };
 
+/* points: breakdown lines (keys match scoreNight() in board.js) and the rule shown on the menu card */
+export const POINT_LABELS = {
+  escape: { fr: 'Sortie réussie', en: 'Escaped' },
+  medal3: { fr: 'Médaille d’or', en: 'Gold medal' },
+  medal2: { fr: 'Médaille d’argent', en: 'Silver medal' },
+  medal1: { fr: 'Médaille de bronze', en: 'Bronze medal' },
+  riders: { fr: 'Cavaliers ralliés', en: 'Riders rallied' },
+  clean: { fr: 'Jamais soupçonné', en: 'Never suspected' },
+  stones: { fr: 'Pierres gardées', en: 'Stones kept' },
+  time: { fr: 'Secondes avant l’aube', en: 'Seconds before dawn' },
+  retry: { fr: 'Essais manqués', en: 'Failed tries' },
+  night: { fr: 'Nuit', en: 'Night' },
+  nightTotal: { fr: 'Points de la nuit', en: 'Points this night' },
+  runSoFar: { fr: 'Total de la partie', en: 'Run total' },
+  total: { fr: 'Total', en: 'Total' },
+  points: { fr: 'points', en: 'points' },
+  pts: { fr: 'pts', en: 'pts' },
+  caught: { fr: 'Un essai manqué coûte 150 points.', en: 'A failed try costs 150 points.' },
+  old: { fr: 'ancien', en: 'old' },
+  oldTitle: { fr: 'Score d’avant les points : valeur estimée', en: 'Score from before points: estimated value' },
+};
+export const POINT_RULE = {
+  fr: 'Points par nuit : 1 000 pour sortir, + médaille (or 500, argent 250), + 200 par cavalier, + 300 sans soupçon, + 50 par pierre gardée, + 5 par seconde avant l’aube. Chaque essai manqué : −150.',
+  en: 'Points per night: 1,000 for getting out, + medal (gold 500, silver 250), + 200 per rider, + 300 if never suspected, + 50 per stone kept, + 5 per second before dawn. Each failed try: −150.',
+};
+
 export const MEDALS = [
   null,
   { fr: 'Bronze', en: 'Bronze' },

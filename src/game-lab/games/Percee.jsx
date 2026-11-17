@@ -6,8 +6,8 @@ import { generate, step, render, createMinimap, throwStone, medalFor, nextGap, a
 import { createFP } from './percee/fp3d';
 import { createInput } from './percee/input';
 import { makeAudio } from './percee/audio';
-import { loadBoard, saveBoard, addEntry, standings, encodeScore, decodeScore, matchSeed, todaySeed, randomSeed, cleanInitials, fmtTime } from './percee/board';
-import { NIGHT_LINES, FACTS, HINTS, MEDALS, BIG_CONTROLS, BIG_LABELS } from './percee/text';
+import { loadBoard, saveBoard, addEntry, standings, encodeScore, decodeScore, matchSeed, todaySeed, randomSeed, cleanInitials, fmtTime, scoreNight, scoreRun, POINTS } from './percee/board';
+import { NIGHT_LINES, FACTS, HINTS, MEDALS, BIG_CONTROLS, BIG_LABELS, POINT_LABELS as PL, POINT_RULE } from './percee/text';
 import './Percee.css';
 
 /*
@@ -63,6 +63,37 @@ function Medal({ level, t }) {
   return <span className={`pc-medal is-${level}`}>{t(MEDALS[level])}</span>;
 }
 
+/** 12 345 → "12 345" (narrow no-break space, readable in French and English) */
+const fmtPts = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
+
+/** a number that counts up once when it appears (instant under reduced motion) */
+function CountUp({ value, ms = 900 }) {
+  const [v, setV] = useState(() => (reducedMotion() ? value : 0));
+  useEffect(() => {
+    if (reducedMotion()) { setV(value); return undefined; }
+    let raf = 0; const t0 = performance.now(); const from = 0;
+    const f = (now) => { const k = Math.min(1, (now - t0) / ms); const e = 1 - (1 - k) ** 3; setV(from + (value - from) * e); if (k < 1) raf = requestAnimationFrame(f); };
+    raf = requestAnimationFrame(f);
+    return () => cancelAnimationFrame(raf);
+  }, [value, ms]);
+  return <>{fmtPts(v)}</>;
+}
+
+/** the lines of a points breakdown: [{ label, n, pts }] → a definition list; zero lines are left out */
+function Breakdown({ lines, total, totalLabel, t }) {
+  return (
+    <dl className="pc-pts">
+      {lines.filter((l) => l.pts !== 0).map((l, i) => (
+        <div key={i} className={l.pts < 0 ? 'is-minus' : undefined}>
+          <dt>{t(l.label)}{l.n > 1 ? <span className="pc-pts-n"> ×{l.n}</span> : null}</dt>
+          <dd>{l.pts > 0 ? '+' : '−'}{fmtPts(Math.abs(l.pts))}</dd>
+        </div>
+      ))}
+      <div className="pc-pts-total"><dt>{t(totalLabel)}</dt><dd><CountUp value={total} /> <small>{t(PL.pts)}</small></dd></div>
+    </dl>
+  );
+}
+
 /** three-letter arcade initials: works with a finger (▲ ▼) and with a keyboard (letters, arrows) */
 function Initials({ value, onChange, t }) {
   const refs = useRef([]);
@@ -107,10 +138,10 @@ function Board({ board, seed, ini, highlight, onImport, t }) {
   const row = (r, i) => (
     <li key={r.id} className={r.id === highlight ? 'is-me' : undefined}>
       <span className="pc-rank">{i + 1}</span>
-      <span className="pc-who">{r.ini}{golds(r) > 0 && <small className="pc-gold" title={t({ fr: 'Nuits en or', en: 'Gold nights' })}> ★{golds(r)}<span className="pc-sr"> {t({ fr: 'nuits en or', en: 'gold nights' })}</span></small>}{r.src === 'code' && <small> · {t({ fr: 'code', en: 'code' })}</small>}</span>
+      <span className="pc-who">{r.ini}{golds(r) > 0 && <small className="pc-gold" title={t({ fr: 'Nuits en or', en: 'Gold nights' })}> ★{golds(r)}<span className="pc-sr"> {t({ fr: 'nuits en or', en: 'gold nights' })}</span></small>}{r.src === 'code' && <small> · {t({ fr: 'code', en: 'code' })}</small>}{r.src === 'old' && <small title={t(PL.oldTitle)}> · ≈ {t(PL.old)}</small>}{r.id === highlight && <small className="pc-new"> {t({ fr: 'nouveau', en: 'new' })}</small>}</span>
+      <span className="pc-score">{fmtPts(r.points || 0)}</span>
       <span>{r.nights}/{NIGHTS}</span>
-      <span>{r.riders || 0}</span>
-      <span>{fmtTime(r.time)}</span>
+      <span>{r.time == null ? '–' : fmtTime(r.time)}</span>
     </li>
   );
   return (
@@ -123,14 +154,14 @@ function Board({ board, seed, ini, highlight, onImport, t }) {
       </div>
       {st.rows.length ? (
         <ol className="pc-rows">
-          <li className="pc-rows-head" aria-hidden="true"><span>#</span><span>{t({ fr: 'Nom', en: 'Name' })}</span><span>{t({ fr: 'Nuits', en: 'Nights' })}</span><span>{t({ fr: 'Cavaliers', en: 'Riders' })}</span><span>{t({ fr: 'Temps', en: 'Time' })}</span></li>
+          <li className="pc-rows-head" aria-hidden="true"><span>#</span><span>{t({ fr: 'Nom', en: 'Name' })}</span><span>{t({ fr: 'Points', en: 'Points' })}</span><span>{t({ fr: 'Nuits', en: 'Nights' })}</span><span>{t({ fr: 'Temps', en: 'Time' })}</span></li>
           {st.rows.map(row)}
           {st.rank >= 10 && <li className="pc-rows-gap" aria-hidden="true">…</li>}
           {st.rank >= 10 && row(st.mine, st.rank)}
         </ol>
       ) : <p className="gf-simplified">{t({ fr: 'Aucun score sur cette carte pour l’instant. Soyez le premier.', en: 'No scores on this map yet. Be the first.' })}</p>}
       {st.best && (
-        <p className="pc-best">{t({ fr: 'Votre record', en: 'Your best' })} ({st.best.ini}) : {st.best.nights}/{NIGHTS} {t({ fr: 'nuits', en: 'nights' })}, {st.best.riders || 0} {t({ fr: 'cavaliers', en: 'riders' })}, {fmtTime(st.best.time)} · {t({ fr: 'rang', en: 'rank' })} {st.bestRank + 1}/{st.total}</p>
+        <p className="pc-best">{t({ fr: 'Votre record', en: 'Your best' })} ({st.best.ini}){t({ fr: ' : ', en: ': ' })}{fmtPts(st.best.points || 0)} {t(PL.points)}, {st.best.nights}/{NIGHTS} {t({ fr: 'nuits', en: 'nights' })} · {t({ fr: 'rang', en: 'rank' })} {st.bestRank + 1}/{st.total}</p>
       )}
       <form className="pc-import" onSubmit={submit}>
         <label htmlFor="pc-code">{t({ fr: 'Ajouter le score d’un camarade (code)', en: 'Add a classmate’s score (code)' })}</label>
@@ -141,6 +172,7 @@ function Board({ board, seed, ini, highlight, onImport, t }) {
           {msg === 'format' && t({ fr: 'Ce code n’a pas la bonne forme (12 caractères).', en: 'That code does not have the right shape (12 characters).' })}
           {msg === 'check' && t({ fr: 'Code refusé : une lettre est sans doute mal recopiée.', en: 'Code rejected: a character was probably mistyped.' })}
           {msg === 'dup' && t({ fr: 'Ce score est déjà au classement.', en: 'That score is already on the board.' })}
+          {msg === 'old' && t({ fr: 'Ce code date d’avant les points : il ne peut pas être converti. Demandez à votre camarade le code de sa nouvelle partie.', en: 'That code is from before points and cannot be converted. Ask your classmate for the code of a new run.' })}
           {msg === 'seed' && t({ fr: 'Ce code vient d’une autre carte que celles affichées ici.', en: 'That code is for a different map than the ones shown here.' })}
         </p>
       </form>
@@ -161,7 +193,7 @@ export default function Percee() {
   const fpRef = useRef(null);
   const audioRef = useRef(null);
   const dom = useRef({});               // HUD nodes written every frame without React
-  const run = useRef({ time: 0, riders: 0, medals: [], tries: 0 });
+  const run = useRef({ time: 0, riders: 0, medals: [], tries: 0, pts: [] });   // pts: points of each escaped night
   const tut = useRef({ step: 9, t: 0, moved: 0 });
   const hook = useRef({ until: -1, x: 0, y: 0, gallop: false });
   const dirty = useRef(true);
@@ -260,7 +292,7 @@ export default function Percee() {
     haptic('tick');
   };
   const newRun = (s = seed) => {
-    run.current = { time: 0, riders: 0, medals: [], tries: 0 };
+    run.current = { time: 0, riders: 0, medals: [], tries: 0, pts: [] };
     setResult(null); setSavedId(null); setCopied('');
     goFull();
     startNight(1, s);
@@ -268,7 +300,7 @@ export default function Percee() {
   const finishRun = (won) => {
     const r = run.current;
     audioRef.current?.stopLoops();
-    setResult({ nights: r.medals.length, riders: r.riders, time: r.time, medals: r.medals.slice(), tries: r.tries, won, seed });
+    setResult({ nights: r.medals.length, riders: r.riders, time: r.time, medals: r.medals.slice(), tries: r.tries, pts: r.pts.slice(), points: scoreRun(r.pts, r.tries), won, seed });
     setPhase('over');
   };
   const quit = () => {
@@ -339,9 +371,11 @@ export default function Percee() {
       } else if (e.type === 'escaped') {
         haptic('success'); a?.fanfare(); a?.stopLoops();
         const medal = medalFor(w);
-        run.current.time += w.time; run.current.riders += w.rallied; run.current.medals.push(medal);
+        const clean = w.stats.suspected === 0;
+        const sc = scoreNight({ medal, riders: w.rallied, clean, stonesLeft: w.stones, secsLeft: w.limit - w.time });
+        run.current.time += w.time; run.current.riders += w.rallied; run.current.medals.push(medal); run.current.pts.push(sc.total);
         inputRef.current?.exitLock(); inputRef.current?.release();
-        setNightStats({ time: w.time, riders: w.rallied, medal, clean: w.stats.suspected === 0, traps: w.stats.traps });
+        setNightStats({ time: w.time, riders: w.rallied, medal, clean, traps: w.stats.traps, score: sc, run: scoreRun(run.current.pts, run.current.tries), tries: run.current.tries });
         if (w.night >= NIGHTS) finishRun(true); else setPhase('between');
       }
     }
@@ -612,7 +646,7 @@ export default function Percee() {
   const saveScore = () => {
     if (!result || savedId) return;
     const id = `r-${Date.now().toString(36)}`;
-    const entry = { id, ini, nights: result.nights, riders: result.riders, time: Math.round(result.time), medals: result.medals, at: Date.now(), src: 'local' };
+    const entry = { id, ini, points: result.points, nights: result.nights, riders: result.riders, time: Math.round(result.time), medals: result.medals, at: Date.now(), src: 'local' };
     const b = addEntry(board, result.seed, entry);
     setBoard(b); saveBoard(b); setSavedId(id); haptic('success');
   };
@@ -623,7 +657,7 @@ export default function Percee() {
     if (!target) return 'seed';
     // the same score already on the board (your own run, or a code pasted twice): do not list it again
     const e = r.entry;
-    const same = (x) => x.id === e.id || (x.ini === e.ini && x.nights === e.nights && (x.riders || 0) === e.riders && Math.round(x.time) === e.time && golds(x) === golds(e));
+    const same = (x) => x.id === e.id || (x.ini === e.ini && x.nights === e.nights && (x.riders || 0) === e.riders && Math.round(x.points || 0) === e.points && golds(x) === golds(e));
     if ((board[target] || []).some(same)) return 'dup';
     const b = addEntry(board, target, r.entry);
     setBoard(b); saveBoard(b);
@@ -661,7 +695,7 @@ export default function Percee() {
     : hud.status === 'seen' ? t({ fr: 'On vous voit', en: 'Seen' })
       : hud.town ? t({ fr: 'En sûreté', en: 'Safe' })
         : hud.hidden ? t({ fr: 'Caché', en: 'Hidden' }) : t({ fr: 'Invisible', en: 'Unseen' });
-  const code = result && savedId ? encodeScore(result.seed, { ini, nights: result.nights, riders: result.riders, time: result.time, medals: result.medals }) : '';
+  const code = result && savedId ? encodeScore(result.seed, { ini, nights: result.nights, riders: result.riders, points: result.points, medals: result.medals }) : '';
   const setRef = (k) => (el) => { dom.current[k] = el; };
   const d0 = () => dom.current;
 
@@ -903,6 +937,10 @@ export default function Percee() {
               <span><i className="pc-dot is-gaul" aria-hidden="true" />{nightStats.riders}/3 {t({ fr: 'cavaliers', en: 'riders' })}</span>
               <span>{nightStats.clean ? t({ fr: 'jamais soupçonné', en: 'never suspected' }) : t({ fr: 'soupçonné', en: 'suspected' })}</span>
             </p>
+            <Breakdown t={t} total={nightStats.score.total} totalLabel={PL.nightTotal}
+              lines={nightStats.score.parts.map((x) => ({ label: PL[x.k], n: x.n, pts: x.pts }))} />
+            <p className="pc-pts-run">{t(PL.runSoFar)}{t({ fr: ' : ', en: ': ' })}<b>{fmtPts(nightStats.run)}</b> {t(PL.pts)}
+              {nightStats.tries > 0 && <> ({t(PL.retry).toLowerCase()} ×{nightStats.tries}{t({ fr: ' : ', en: ': ' })}−{fmtPts(nightStats.tries * POINTS.retry)})</>}</p>
             <p className="gf-simplified">{t({ fr: 'Or : trois cavaliers sans jamais éveiller de soupçon. Argent : deux cavaliers, ou aucun soupçon.', en: 'Gold: three riders and never suspected. Silver: two riders, or never suspected.' })}</p>
             <p>{t({ fr: 'Chaque jour, les Romains bouchent des brèches et ajoutent des tours. La nuit suivante sera plus dure, et l’aube viendra plus tôt.', en: 'Every day the Romans close gaps and add towers. The next night will be harder, and dawn will come sooner.' })}</p>
           </Card>
@@ -916,7 +954,7 @@ export default function Percee() {
             <p>{caught === 'dawn'
               ? t({ fr: 'Le jour se lève : plus moyen de passer sans être vu. Il fallait franchir les deux lignes avant l’aube.', en: 'Day is breaking: there is no slipping through now. You had to cross both lines before dawn.' })
               : t({ fr: 'Les sentinelles donnent l’alerte. Vous tournez bride vers Alésia.', en: 'The sentries raise the alarm. You turn back to Alésia.' })}</p>
-            <p className="gf-simplified">{t({ fr: 'Le temps de cet essai est ajouté à votre total.', en: 'The time of this attempt is added to your total.' })}</p>
+            <p className="gf-simplified">{t({ fr: 'Le temps de cet essai est ajouté à votre total.', en: 'The time of this attempt is added to your total.' })} {t(PL.caught)}</p>
             <div className="gf-row">
               <button type="button" className="gf-btn" onClick={() => finishRun(false)}>{t({ fr: 'Terminer et enregistrer le score', en: 'End the run and save the score' })}</button>
               <button type="button" className="gf-btn" onClick={quit}>{t({ fr: 'Quitter', en: 'Quit' })}</button>
@@ -934,8 +972,8 @@ export default function Percee() {
               ? t({ fr: 'Cinq nuits, cinq percées. Historiquement, la cavalerie gauloise a bien franchi les lignes avant qu’elles ne se ferment, et l’armée de secours est venue.', en: 'Five nights, five breakouts. Historically the Gallic cavalry did slip out before the lines closed, and the relief army came.' })
               : t({ fr: `Nuits réussies : ${result.nights}/${NIGHTS}. Chaque cavalier rallié portera l’appel plus loin.`, en: `Nights completed: ${result.nights}/${NIGHTS}. Every rider you rallied will carry the call further.` })}</p>
             <dl className="pc-sum">
+              <div className="is-points"><dt>{t({ fr: 'Points', en: 'Points' })}</dt><dd><CountUp value={result.points} ms={1400} /></dd></div>
               <div><dt>{t({ fr: 'Nuits', en: 'Nights' })}</dt><dd>{result.nights}/{NIGHTS}</dd></div>
-              <div><dt>{t({ fr: 'Cavaliers', en: 'Riders' })}</dt><dd>{result.riders}</dd></div>
               <div><dt>{t({ fr: 'Temps total', en: 'Total time' })}</dt><dd>{fmtTime(result.time)}</dd></div>
               <div><dt>{t({ fr: 'Essais manqués', en: 'Failed tries' })}</dt><dd>{result.tries}</dd></div>
             </dl>
@@ -943,6 +981,13 @@ export default function Percee() {
               <ol className="pc-medals" aria-label={t({ fr: 'Médailles par nuit', en: 'Medals per night' })}>
                 {result.medals.map((m, i) => <li key={i}><span>{t({ fr: 'Nuit', en: 'Night' })} {i + 1}</span><Medal level={m} t={t} /></li>)}
               </ol>
+            )}
+            {(result.pts.length > 0 || result.tries > 0) && (
+              <Breakdown t={t} total={result.points} totalLabel={PL.total}
+                lines={[
+                  ...result.pts.map((x, i) => ({ label: { fr: `${PL.night.fr} ${i + 1}`, en: `${PL.night.en} ${i + 1}` }, n: 1, pts: x })),
+                  { label: PL.retry, n: result.tries, pts: -result.tries * POINTS.retry },
+                ]} />
             )}
             {!savedId ? (
               <div className="pc-save">
@@ -990,6 +1035,7 @@ export default function Percee() {
         <Card title={{ fr: 'Nuit d’août 52 av. J.-C.', en: 'An August night, 52 BC' }} action={{ fr: 'Partir dans la nuit', en: 'Ride into the night' }} onAction={() => newRun()}>
           <p>{t({ fr: 'Les Romains n’ont pas fini leurs murs. Vercingétorix vous envoie, à cheval, chercher du secours dans toute la Gaule. Sortez d’Alésia, ralliez trois cavaliers cachés dans les bois et franchissez les deux lignes par une brèche avant l’aube, sans vous faire voir.', en: 'The Romans have not finished their walls. Vercingétorix sends you, on horseback, to raise all of Gaul. Leave Alésia, rally three riders hidden in the woods and slip through a gap in both lines before dawn, without being seen.' })}</p>
           <ul className="pc-rules">
+            <li><i className="pc-dot is-gold" aria-hidden="true" />{t(POINT_RULE)}</li>
             <li><i className="pc-dot is-rome" aria-hidden="true" />{t({ fr: 'Tours et patrouilles : restez hors de leurs faisceaux. L’œil se remplit peu à peu ; plein, vous êtes pris.', en: 'Towers and patrols: stay out of their beams. The eye fills little by little; when full, you are caught.' })}</li>
             <li><i className="pc-dot is-gaul" aria-hidden="true" />{t({ fr: 'Colonnes vertes : les cavaliers à rallier. Chacun vous apprend quelque chose sur le siège.', en: 'Green columns: riders to rally. Each one tells you something about the siege.' })}</li>
             <li><i className="pc-dot is-gold" aria-hidden="true" />{t({ fr: 'Colonnes dorées : les brèches. Chaque nuit il y en a moins, et l’aube vient plus tôt.', en: 'Gold columns: the gaps. Each night there are fewer, and dawn comes sooner.' })}</li>

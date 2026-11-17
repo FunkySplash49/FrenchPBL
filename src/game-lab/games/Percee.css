@@ -31,6 +31,21 @@
 .pc-dot.is-stone { background: var(--text-muted); }
 .pc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
+/* ── points ── */
+.pc-pts { display: grid; gap: 0; width: 100%; max-width: 26rem; margin: 0; font-variant-numeric: tabular-nums; }
+.pc-pts > div { display: flex; justify-content: space-between; gap: var(--space-3); padding: 3px 0; border-bottom: 1px dashed var(--border); font-size: var(--text-sm); }
+.pc-pts dt { color: var(--text-muted); }
+.pc-pts dd { margin: 0; color: var(--text); font-weight: 600; }
+.pc-pts .pc-pts-n { color: var(--text-faint); font-weight: 400; }
+.pc-pts > div.is-minus dd { color: var(--rome-400); }
+.pc-pts > .pc-pts-total { border-bottom: 0; border-top: 1px solid var(--border-strong); padding-top: var(--space-2); margin-top: 2px; align-items: baseline; }
+.pc-pts-total dt { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); }
+.pc-pts-total dd { font-family: var(--font-display); font-size: var(--text-2xl); color: var(--accent-strong); }
+.pc-pts-total small { font-family: var(--font-body); font-size: var(--text-sm); font-weight: 400; color: var(--text-muted); }
+.pc-pts-run { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.pc-pts-run b { color: var(--text); font-variant-numeric: tabular-nums; }
+.pc-sum > div.is-points dd { color: var(--accent-strong); }
+
 /* ── leaderboard ── */
 .pc-board { width: 100%; display: grid; gap: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border); }
 .pc-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -41,10 +56,13 @@
 .pc-tab code { font-family: ui-monospace, Menlo, monospace; text-transform: none; letter-spacing: 0; }
 .pc-tab.is-on { color: var(--text); border-bottom-color: var(--accent); }
 .pc-rows { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; font-variant-numeric: tabular-nums; }
-.pc-rows li { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) 3.4rem 4.6rem 3.6rem; gap: var(--space-2); align-items: center; min-height: 34px; padding: 0 var(--space-2); font-size: var(--text-sm); border-bottom: 1px dashed var(--border); }
+.pc-rows li { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) 5.2rem 3.4rem 3.6rem; gap: var(--space-2); align-items: center; min-height: 34px; padding: 0 var(--space-2); font-size: var(--text-sm); border-bottom: 1px dashed var(--border); }
 .pc-rows li > span:nth-child(n + 3) { text-align: right; }
 .pc-rows-head { font-family: var(--font-display); font-size: 0.7rem !important; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
 .pc-rows .pc-rank { color: var(--text-muted); }
+.pc-rows .pc-score { font-family: var(--font-display); font-weight: 700; color: var(--accent-strong); }
+.pc-rows-head .pc-score, .pc-rows-head > span:nth-child(3) { color: var(--text-muted); }
+.pc-rows .pc-who small.pc-new { display: inline-block; margin-left: 0.4em; padding: 0 0.45em; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--on-accent); background: var(--accent); }
 .pc-rows .pc-who { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.14em; }
 .pc-rows .pc-who small { font-family: var(--font-body); font-weight: 400; letter-spacing: 0; color: var(--text-muted); }
 .pc-rows .pc-who small.pc-gold { color: var(--gold-400); font-weight: 600; }
@@ -247,7 +265,8 @@
   .pc-toast { font-size: var(--text-sm); bottom: 34%; }
   .pc-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pc-menu-btns { grid-template-columns: 1fr; }
-  .pc-rows li { grid-template-columns: 1.6rem minmax(0, 1fr) 2.6rem 2.6rem 3.2rem; padding: 0; }
+  .pc-rows li { grid-template-columns: 1.6rem minmax(0, 1fr) 4.2rem 2.4rem 3rem; padding: 0; }
+  .pc-pts > div { font-size: var(--text-sm); }
   .pc-overlay { padding: var(--space-2); place-items: start center; }
   .pc-overlay .gf-card { padding: var(--space-4); }
   .pc-range { grid-template-columns: 1fr 3ch; }
