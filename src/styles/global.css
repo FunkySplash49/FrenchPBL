@@ -153,9 +153,14 @@ kbd {
   line-height: 0.95; letter-spacing: 0.02em; color: var(--gold-100);
   text-shadow: var(--glow-ember);
 }
+.hero-word {
+  /* two lines: the small lead-in, then ALÉSIA. The É accent climbs well above the cap
+     height (line-height 0.95 doesn't hold it), so the gap is sized in the big type's em */
+  display: grid; justify-items: center; row-gap: 0.3em;
+}
 .hero-word .hero-pre {
   display: block; font-size: 0.24em; font-weight: 600; line-height: 1.1; letter-spacing: 0.32em;
-  margin: 0 0 0.35em 0.32em; /* left margin balances the trailing letter-spacing */
+  margin: 0 0 0 0.32em; /* left margin balances the trailing letter-spacing */
   text-transform: uppercase; color: var(--gold-200);
 }
 .hero-lead { font-size: var(--text-xl); line-height: 1.5; max-width: 42ch; text-wrap: balance; }
