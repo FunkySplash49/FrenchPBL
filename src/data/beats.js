@@ -9,12 +9,12 @@
  * Every string is { fr, en, say? }.  {{key}} = vocabulary tooltip (data/vocab.js), *x* = italic.
  */
 
-/* Presenters — replace the teammate letters with real first names. */
+/* Presenters (team). */
 export const PRESENTERS = {
   aryan: 'Aryan',
-  A: 'Équipier A',
-  B: 'Équipier B',
-  C: 'Équipier C',
+  A: 'Aliza',
+  B: 'Divyansh',
+  C: 'Maurya',
 };
 
 export const PARTS = {
