@@ -131,7 +131,7 @@ kbd {
 .ring-outer { stroke: var(--rome-600); stroke-width: 1.6; opacity: 0.55; }
 .ring-inner { stroke: var(--rome-400); stroke-width: 1.1; opacity: 0.45; }
 .hero-inner {
-  position: relative; display: grid; justify-items: center; gap: var(--space-5);
+  position: relative; display: grid; justify-items: center; gap: var(--space-6);
   padding: var(--space-7) var(--space-5);
   isolation: isolate;
 }
@@ -154,10 +154,12 @@ kbd {
   text-shadow: var(--glow-ember);
 }
 .hero-word .hero-pre {
-  display: block; font-size: 0.32em; line-height: 1.1; letter-spacing: 0.14em;
-  margin-bottom: 0.12em; text-transform: uppercase;
+  display: block; font-size: 0.24em; font-weight: 600; line-height: 1.1; letter-spacing: 0.32em;
+  margin: 0 0 0.35em 0.32em; /* left margin balances the trailing letter-spacing */
+  text-transform: uppercase; color: var(--gold-200);
 }
-.hero-lead { font-size: var(--text-xl); line-height: 1.45; max-width: 34ch; }
+.hero-lead { font-size: var(--text-xl); line-height: 1.5; max-width: 42ch; text-wrap: balance; }
+.hero-actions { margin-top: var(--space-2); }
 .hero-actions { display: grid; justify-items: center; gap: var(--space-3); }
 .hero-keys { font-size: var(--text-sm); color: var(--text-muted); }
 
