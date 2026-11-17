@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import { ArrowUp, ExternalLink } from 'lucide-react';
 import { useLang, pick } from '../lib/lang';
 import { ScrollTrigger } from '../lib/motion';
-import { PARTS, PRESENTERS } from '../data/beats';
+import { PRESENTERS } from '../data/beats';
 import { SCENES } from '../data/scenes';
 
 const SOURCES = [
@@ -39,15 +39,12 @@ export default function Outro({ onActive, onTop }) {
 
         <div className="outro-grid">
           <div>
-            <h3 className="outro-h">{en ? 'Who presents what' : 'Qui présente quoi'}</h3>
-            <ol className="team">
-              {Object.entries(PARTS).map(([n, p]) => (
-                <li key={n}>
-                  <span className="team-name">{PRESENTERS[p.presenter]}</span>
-                  <span className="team-part">{pick(p, lang)}</span>
-                </li>
+            <h3 className="outro-h">{en ? 'The team' : 'L’équipe'}</h3>
+            <ul className="team">
+              {Object.values(PRESENTERS).map((name) => (
+                <li key={name}><span className="team-name">{name}</span></li>
               ))}
-            </ol>
+            </ul>
           </div>
           <div>
             <h3 className="outro-h">Sources</h3>
