@@ -191,6 +191,19 @@ export default function Percee() {
     toastTimer.current = setTimeout(() => setToast(null), ms);
   }, []);
 
+  /* On a phone or tablet the game takes the whole screen as soon as it starts. Browsers only allow
+     this from a tap, so it is asked on "Ride into the night" and again on "Tap to ride" (in case
+     the player left full screen in between). iPhone Safari has no such API: there the stage simply
+     fills the viewport, and the installed web app is already full screen. */
+  const goFull = () => {
+    if (live.current.kind !== 'touch' || document.fullscreenElement || document.webkitFullscreenElement) return;
+    const el = document.documentElement;
+    try {
+      const p = el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : el.webkitRequestFullscreen?.();
+      p?.catch?.(() => {});
+    } catch { /* refused or unsupported: the game still works */ }
+  };
+
   /* ── run / night flow ── */
   const startNight = (n, s = seed) => {
     const w = generate(s, n);
@@ -205,6 +218,7 @@ export default function Percee() {
   const newRun = (s = seed) => {
     run.current = { time: 0, riders: 0, medals: [], tries: 0 };
     setResult(null); setSavedId(null); setCopied('');
+    goFull();
     startNight(1, s);
   };
   const finishRun = (won) => {
@@ -216,12 +230,13 @@ export default function Percee() {
   const quit = () => {
     inputRef.current?.exitLock();
     audioRef.current?.stopLoops();
-    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    try { if (document.fullscreenElement) document.exitFullscreen?.()?.catch?.(() => {}); else if (document.webkitFullscreenElement) document.webkitExitFullscreen?.(); } catch { /* ignore */ }
     setPhase('menu'); setMode('ready');
   };
 
   /* ── pause / resume ── */
   const begin = (e) => {
+    goFull();
     const a = audio(); a.unlock(); a.stopLoops(); a.ambience(worldRef.current.weather, horror);
     const mouse = e ? (e.nativeEvent?.pointerType ? e.nativeEvent.pointerType === 'mouse' : live.current.kind === 'mouse') : false;
     setMode('run');
@@ -527,9 +542,10 @@ export default function Percee() {
     } catch { /* cancelled */ }
   };
   const toggleFull = () => {
-    const el = stageRef.current;
     try {
-      if (document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen?.()?.catch?.(() => {});
+      if (document.fullscreenElement) document.exitFullscreen()?.catch?.(() => {});
+      else if (document.webkitFullscreenElement) document.webkitExitFullscreen?.();
+      else { const el = document.documentElement; (el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : el.webkitRequestFullscreen?.())?.catch?.(() => {}); }
     } catch { /* not supported (iPhone): the stage already fills the viewport */ }
   };
 
