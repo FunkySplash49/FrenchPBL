@@ -60,7 +60,8 @@ export function useClassBoard({ every = 15000, refreshKey = 0, paused = false } 
   return { rows, state, at, refresh };
 }
 
-export function ClassRows({ rows, me, t, limit = 100, start = 0 }) {
+/** `rowAction(row)`: optional node shown at the end of a row's name cell (the gamekeeper's remove button) */
+export function ClassRows({ rows, me, t, limit = 100, start = 0, rowAction = null }) {
   return (
     <ol className="pc-rows pc-class">
       <li className="pc-rows-head" aria-hidden="true">
@@ -71,7 +72,9 @@ export function ClassRows({ rows, me, t, limit = 100, start = 0 }) {
         return (
           <li key={`${r.name}-${i}`} className={mine ? 'is-me' : undefined}>
             <span className="pc-rank">{start + i + 1}</span>
-            <span className="pc-who">{r.name}{mine && <small className="pc-new"> {t(CB.you)}</small>}</span>
+            {rowAction ? (
+              <span className="pc-who pc-who-x"><span className="pc-nm">{r.name}</span>{rowAction(r)}</span>
+            ) : <span className="pc-who">{r.name}{mine && <small className="pc-new"> {t(CB.you)}</small>}</span>}
             <span className="pc-score">{fmtPts(r.points || 0)}</span>
             <span>{r.nights}/{NIGHTS_MAX}</span>
             <span className="pc-goldcol" title={t(CB.goldNights)}>

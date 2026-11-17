@@ -29,6 +29,7 @@ export function fakeRedis({ now = () => Date.now() } = {}) {
       case 'INCR': { const e = live(a[0]) || { v: '0', exp: 0 }; e.v = String(Number(e.v) + 1); s.set(a[0], e); return Number(e.v); }
       case 'DEL': { let n = 0; for (const k of a) { if (z.delete(k)) n++; if (h.delete(k)) n++; if (s.delete(k)) n++; } return n; }
       case 'ZREVRANGE': { const [k, start, stop] = a; return sorted(k).slice(Number(start), Number(stop) + 1).map((x) => x[0]); }
+      case 'ZCARD': return z.has(a[0]) ? z.get(a[0]).size : 0;
       case 'ZREM': { const m = zs(a[0]); let n = 0; for (const x of a.slice(1)) if (m.delete(x)) n++; return n; }
       case 'HDEL': { const m = h.get(a[0]) || new Map(); let n = 0; for (const x of a.slice(1)) if (m.delete(x)) n++; return n; }
       case 'HMGET': { const m = h.get(a[0]) || new Map(); return a.slice(1).map((f) => (m.has(f) ? m.get(f) : null)); }

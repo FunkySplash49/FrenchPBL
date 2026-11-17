@@ -8,6 +8,8 @@
  *   POST   /api/board  (JSON)    → 200 { ok, improved, rank, total, best }  (rank is 1-based)
  *          body { name, points, nights, gold, riders?, time, seed? }
  *   DELETE /api/board[?name=X]   → 200 { ok, removed }   only when ADMIN_KEY is set; header  x-admin-key: <ADMIN_KEY>
+ *          removed = rows deleted (0 or 1 with ?name, the whole count without it)
+ *   DELETE /api/board?check=1    → 200 { ok, check: true }  checks the key only, changes nothing (the gamekeeper panel)
  *
  * Errors: { error: <code> } with 400 (name | profanity | points | nights | gold | riders | time | json),
  *         405, 413 (too large), 429 (rate), 503 (not configured / store down).
@@ -157,15 +159,17 @@ export function createHandler({ redis, env = process.env, now = () => Date.now()
         const admin = env.ADMIN_KEY;
         if (!admin) return json({ error: 'disabled' }, 403);
         if (!safeEq(req.headers.get('x-admin-key') || '', admin)) return json({ error: 'forbidden' }, 403);
-        const only = new URL(req.url).searchParams.get('name');
+        const q = new URL(req.url).searchParams;
+        if (q.has('check')) return json({ ok: true, check: true });
+        const only = q.get('name');
         if (only != null) {
           const n = cleanName(only);
           const key = n.ok ? n.key : only.trim().toLocaleLowerCase('fr');
           const [a] = await db.pipeline([['ZREM', KEYS.z, key], ['HDEL', KEYS.h, key]]);
           return json({ ok: true, removed: a });
         }
-        const [a] = await db.pipeline([['DEL', KEYS.z], ['DEL', KEYS.h]]);
-        return json({ ok: true, removed: a ? 'all' : 0 });
+        const [count] = await db.pipeline([['ZCARD', KEYS.z], ['DEL', KEYS.z], ['DEL', KEYS.h]]);
+        return json({ ok: true, removed: count || 0 });
       }
 
       // POST

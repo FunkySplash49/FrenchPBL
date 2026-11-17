@@ -56,6 +56,18 @@ for the classroom screen is `?g=percee&board` (refreshes every 15 s).
   simulate an outage). `npm run test:api` runs the handler tests.
 - Deploy: `npm run deploy:lab` (builds, stages `.deploy/alesia-game-lab` with `api/board.mjs`,
   then `vercel deploy --prod`). `bash tools/deploy-lab.sh --dry-run` stages without uploading.
-- Reset (needs `ADMIN_KEY` set on the project):
+- Gamekeeper (teacher) panel: open `?g=percee&board&admin` (on the deployed lab:
+  `https://alesia-game-lab.vercel.app/?g=percee&board&admin`). Students never see it: without `&admin`
+  nothing of it is rendered or requested. Enter the key (the project's `ADMIN_KEY`; it is not written
+  anywhere in this repo) and press Unlock; it is checked with `DELETE /api/board?check=1`, which changes
+  nothing. Tick "Remember in this tab" to keep it in `sessionStorage` until the tab is closed (never
+  in localStorage or the URL). Then:
+  - **Reset the whole board**: a second button confirms and says how many rows will go.
+  - **×** on a row, then **Remove?**, deletes that one name (a test or a bad name).
+  - A wrong key shows "Key refused (403)" and locks the panel again.
+  After a reset, students' boards show the empty board on their next refresh; their own best scores on
+  their device are untouched. A score still waiting to be sent from a device (offline save) can arrive
+  after a reset; that is expected. Under `npm run dev` the mock's key is `dev`.
+- Reset from a terminal (needs `ADMIN_KEY` set on the project):
   `curl -X DELETE -H "x-admin-key: $ADMIN_KEY" https://alesia-game-lab.vercel.app/api/board`
   (add `?name=Some%20Name` to remove one row only).

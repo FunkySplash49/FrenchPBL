@@ -110,10 +110,25 @@ await test('DELETE: disabled without ADMIN_KEY, guarded with it', async () => {
   let r = await handle(new Request(URL0, { method: 'DELETE' })); assert.equal(r.status, 403); assert.equal((await r.json()).error, 'disabled');
   const admin = createHandler({ redis: db, env: { ADMIN_KEY: 'k-123' }, now });
   r = await admin(new Request(URL0, { method: 'DELETE', headers: { 'x-admin-key': 'wrong' } })); assert.equal(r.status, 403);
+  r = await admin(new Request(`${URL0}?check=1`, { method: 'DELETE', headers: { 'x-admin-key': 'wrong' } })); assert.equal(r.status, 403);
+  r = await admin(new Request(`${URL0}?check=1`, { method: 'DELETE' })); assert.equal(r.status, 403);
+  const before = (await get()).length; assert.ok(before > 1);
+  r = await admin(new Request(`${URL0}?check=1`, { method: 'DELETE', headers: { 'x-admin-key': 'k-123' } }));
+  assert.equal(r.status, 200); assert.deepEqual(await r.json(), { ok: true, check: true });
+  assert.equal((await get()).length, before, 'a key check changes nothing');
+  r = await admin(new Request(`${URL0}?name=nobody%20here`, { method: 'DELETE', headers: { 'x-admin-key': 'k-123' } })); assert.equal((await r.json()).removed, 0);
   r = await admin(new Request(`${URL0}?name=dan`, { method: 'DELETE', headers: { 'x-admin-key': 'k-123' } })); assert.equal((await r.json()).removed, 1);
   assert.ok(!(await get()).some((x) => x.name === 'Dan'));
+  const left = await db.cmd(['ZCARD', 'percee:class:z']); assert.ok(left > 100);   // more rows than GET shows (top 100)
   r = await admin(new Request(URL0, { method: 'DELETE', headers: { 'x-admin-key': 'k-123' } })); assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, removed: left });
   assert.deepEqual(await get(), []);
+  // after a reset the board works as before: a score (even one re-sent from a pending save) lands as rank 1
+  r = await post(run('Dan', 300)); assert.equal(r.status, 200); assert.equal((await r.json()).rank, 1);
+  r = await admin(new Request(URL0, { method: 'DELETE', headers: { 'x-admin-key': 'k-123' } }));
+  assert.deepEqual(await r.json(), { ok: true, removed: 1 });
+  r = await admin(new Request(URL0, { method: 'DELETE', headers: { 'x-admin-key': 'k-123' } }));
+  assert.deepEqual(await r.json(), { ok: true, removed: 0 }, 'resetting an empty board is fine');
 });
 
 await test('other methods → 405; store down → 503; no env → 503', async () => {

@@ -19,10 +19,10 @@ export function nameProblem(raw) {
 }
 export const sameName = (a, b) => !!a && !!b && tidyName(a).toLocaleLowerCase('fr') === tidyName(b).toLocaleLowerCase('fr');
 
-async function call(init) {
+async function call(init, query = '') {
   const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), TIMEOUT);
   try {
-    const r = await fetch(URL_, { cache: 'no-store', ...init, signal: ctl.signal });
+    const r = await fetch(URL_ + query, { cache: 'no-store', ...init, signal: ctl.signal });
     const type = r.headers.get('content-type') || '';
     const body = type.includes('application/json') ? await r.json().catch(() => null) : null;
     return { status: r.status, body };
@@ -47,6 +47,18 @@ export async function submitClassScore(payload) {
     if (status === 400 && (body?.error === 'name' || body?.error === 'profanity')) return { ok: false, error: body.error };
     if (status === 400 || status === 413) return { ok: false, error: 'invalid' };
     if (status === 429) return { ok: false, error: 'rate' };
+  } catch { /* offline or timed out */ }
+  return { ok: false, error: 'offline' };
+}
+
+/** gamekeeper (teacher) actions, header x-admin-key. what: { check: true } | { name } | { all: true }
+    → { ok: true, removed } | { ok: false, error: 'forbidden' | 'disabled' | 'offline' } */
+export async function adminBoard(key, what) {
+  const query = what.check ? '?check=1' : what.name != null ? `?name=${encodeURIComponent(what.name)}` : '';
+  try {
+    const { status, body } = await call({ method: 'DELETE', headers: { 'x-admin-key': String(key || '') } }, query);
+    if (status === 200 && body?.ok) return { ok: true, removed: body.removed ?? 0 };
+    if (status === 403) return { ok: false, error: body?.error === 'disabled' ? 'disabled' : 'forbidden' };
   } catch { /* offline or timed out */ }
   return { ok: false, error: 'offline' };
 }
