@@ -14,7 +14,7 @@ export default function TopBar({ onHome }) {
   return (
     <header className="topbar">
       <button type="button" className="wordmark-sm" onClick={onHome} aria-label={lang === 'en' ? 'Back to the start' : 'Revenir au début'}>
-        Alésia
+        {lang === 'en' ? 'Battle of Alésia' : 'Bataille d’Alésia'}
       </button>
       <button
         type="button"

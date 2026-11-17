@@ -153,6 +153,10 @@ kbd {
   line-height: 0.95; letter-spacing: 0.02em; color: var(--gold-100);
   text-shadow: var(--glow-ember);
 }
+.hero-word .hero-pre {
+  display: block; font-size: 0.32em; line-height: 1.1; letter-spacing: 0.14em;
+  margin-bottom: 0.12em; text-transform: uppercase;
+}
 .hero-lead { font-size: var(--text-xl); line-height: 1.45; max-width: 34ch; }
 .hero-actions { display: grid; justify-items: center; gap: var(--space-3); }
 .hero-keys { font-size: var(--text-sm); color: var(--text-muted); }

@@ -51,7 +51,10 @@ export default function Hero({ onActive, onStart }) {
         <p className="hero-sub eyebrow">
           {en ? 'September 52 BC · Caesar against Vercingétorix' : 'Septembre 52 av. J.-C. · César contre Vercingétorix'}
         </p>
-        <h1 id="hero-title" className="hero-word" lang="fr">Alésia</h1>
+        <h1 id="hero-title" className="hero-word">
+          <span className="hero-pre">{en ? 'Battle of' : 'La bataille d’'}</span>
+          <span lang="fr">Alésia</span>
+        </h1>
         <p className="hero-lead">
           {en
             ? 'How a siege inside a siege ended Gallic independence — in 12 steps.'
