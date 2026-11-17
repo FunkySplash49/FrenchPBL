@@ -81,8 +81,8 @@ function build(parts, ao = 0.45) {
   return g;
 }
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
-const cyl = (rt, rb, h, n = 5) => new THREE.CylinderGeometry(rt, rb, h, n);
-const cone = (r, h, n = 5) => new THREE.ConeGeometry(r, h, n);
+const cyl = (rt, rb, h, n = 5, open = false) => new THREE.CylinderGeometry(rt, rb, h, n, 1, open);
+const cone = (r, h, n = 5, open = false) => new THREE.ConeGeometry(r, h, n, 1, open);
 const ico = (r) => new THREE.IcosahedronGeometry(r, 0);
 
 function glowTexture() {
@@ -374,7 +374,7 @@ export function createFP(canvas) {
     bankGeo.setIndex(bi); const bankFlat = keep(bankGeo.toNonIndexed()); bankFlat.computeVertexNormals();
     add(new THREE.Mesh(bankFlat, mat2)).frustumCulled = false;
 
-    const stakeGeo = keep(build([part(cyl(0.13, 0.16, 1.9, 5), 0x6b4a2c, 0, 0.95, 0), part(cone(0.13, 0.4, 5), 0x8a6a44, 0, 2.1, 0)], 0.5));
+    const stakeGeo = keep(build([part(cyl(0.14, 0.17, 1.9, 4, true), 0x6b4a2c, 0, 0.95, 0), part(cone(0.14, 0.4, 4, true), 0x8a6a44, 0, 2.1, 0)], 0.5));
     const stakes = add(new THREE.InstancedMesh(stakeGeo, mat, stakeSpots.length)); stakes.frustumCulled = false;
     stakeSpots.forEach(([x, y], i) => {
       dummy.position.set(x * S + (rnd() - 0.5) * 0.05, hAt(x, y) + 1.0 + (rnd() - 0.5) * 0.12, y * S + (rnd() - 0.5) * 0.05);
@@ -440,7 +440,7 @@ export function createFP(canvas) {
 
     // ── trees (solid trunks, canopy above the rider's head) + a dark belt of woods beyond the works ──
     const treeGeo = keep(build([
-      part(cyl(0.16, 0.26, 3.4, 5), 0x4a3524, 0, 1.7, 0),
+      part(cyl(0.16, 0.26, 3.4, 5, true), 0x4a3524, 0, 1.7, 0),
       part(ico(1.7), 0x2c4a2a, 0, 4.5, 0, 0, 0, 0, 1, 0.8, 1), part(ico(1.25), 0x355a30, 0.7, 5.4, 0.3, 0.4, 0, 0, 1, 0.8, 1), part(ico(1.1), 0x27402a, -0.8, 4.2, -0.5, 0, 0.5, 0, 1, 0.75, 1),
     ], 0.3));
     const far = [];
