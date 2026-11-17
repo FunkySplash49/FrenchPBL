@@ -590,14 +590,18 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       root.classList.toggle('glass-css', m !== '');
       root.classList.toggle('glass-css-out', m === 'out');
     };
-    let scrollAt = -1e9; let lastY = window.scrollY;
+    // document scroll speed (px/ms): a fling holds the scene switch until it slows (below)
+    let scrollAt = -1e9; let lastY = window.scrollY; let lastAt = 0; let speed = 0;
     const onScroll = (e) => {
       boxesStale = true;
       if (e.target !== document && e.target !== root) return; // a box scrolling inside itself
-      const y = window.scrollY;
+      const now = performance.now(); const y = window.scrollY;
       if (y === lastY) return;
-      lastY = y; scrollAt = performance.now();
+      const inst = Math.abs(y - lastY) / Math.max(8, now - lastAt);
+      speed = now - lastAt > 120 ? inst : speed * 0.5 + inst * 0.5;
+      lastY = y; lastAt = now; scrollAt = now;
     };
+    const FLING = 1.2; // px/ms ≈ 70 px per frame: passing steps, not reading them
     // a finger dragging: hand off already (the compositor starts scrolling before the first
     // scroll event reaches this thread, so waiting for it would show one trailing frame)
     let touchAt = -1e9;
@@ -680,11 +684,16 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       // makes it visibly snap (grain, scanlines, glow all re-scale). The size is fixed by
       // the caps above, decided once.
 
-      // debounce the target: scrolling fast across several steps is one switch
+      // debounce the target: scrolling fast across several steps is one switch. A fling
+      // (steps passing by, ~70+ px per frame) holds the target until it slows down, so it
+      // lands on one switch to where it stops instead of a chain of them — and doesn't
+      // upload the pictures of steps it only flies past.
       const w = want.current;
+      const flinging = now - scrollAt < 120 && speed >= FLING;
       if (w !== seen) { seen = w; seenAt = now; }
-      if (settled !== seen && (now - seenAt >= settleMs || !tex.has(a))) settled = seen;
-      ensure(settled); ensure(w); ensure(w + 1); ensure(w - 1);
+      if (settled !== seen && ((now - seenAt >= settleMs && !flinging) || !tex.has(a))) settled = seen;
+      ensure(settled);
+      if (!flinging) { ensure(w); ensure(w + 1); ensure(w - 1); }
       if (!tex.has(a) && tex.has(settled)) { a = settled; b = a; } // very first picture
       if (tex.has(a)) warm();
 
