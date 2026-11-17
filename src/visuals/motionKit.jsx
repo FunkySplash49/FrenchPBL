@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { REDUCED_QUERY } from '../lib/motion';
 import { haptic } from '../lib/haptics';
+import { afterFling } from '../lib/fling';
 import TvScreen from './TvScreen';
 
 /*
@@ -29,9 +30,15 @@ export function useLive(ref, threshold = 0.15) {
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof IntersectionObserver !== 'function') return undefined;
-    const io = new IntersectionObserver(([e]) => setOnScreen(e.isIntersecting), { threshold });
+    // a diagram a fling only flies past doesn't start (or stop) its units mid-fling: that
+    // re-render (~15–25 ms) would land in the fast scroll; it happens when the fling slows
+    let cancel = () => {};
+    const io = new IntersectionObserver(([e]) => {
+      cancel();
+      cancel = afterFling(() => setOnScreen(e.isIntersecting));
+    }, { threshold });
     io.observe(el);
-    return () => io.disconnect();
+    return () => { cancel(); io.disconnect(); };
   }, [ref, threshold]);
 
   return onScreen && !reduced;
