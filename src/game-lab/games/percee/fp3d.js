@@ -591,6 +591,9 @@ export function createFP(canvas) {
       horror, hoof: 0, dustI: 0, t: 0, horseYaw: w.player.face, gait: 0, bobK: 0, shake: 0, kickT: 0, rider0: 0,
     };
     lantern.intensity = 0; halo.intensity = 0;
+    // the lantern only shines in "Dread" mode; otherwise it is left out of the scene, so the shaders do
+    // not evaluate a spot light of intensity 0 on every pixel (same picture, less work per pixel)
+    lantern.visible = horror;
     fov = baseFov;
     // first matrices
     updateDynamic(0, w.player.face);
