@@ -81,17 +81,19 @@
 .pc-surface { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
 .pc-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
 .pc-stage[data-mode='run'][data-view='3d'][data-input='mouse'] .pc-canvas { cursor: crosshair; }
-.pc-fx { position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(ellipse at center, transparent 55%, rgb(179 38 30 / calc(var(--fear, 0) * 0.5)) 100%),
-    radial-gradient(ellipse at center, transparent 50%, rgb(0 0 0 / 0.5) 100%); }
+.pc-fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  background: radial-gradient(ellipse at center, transparent 50%, rgb(0 0 0 / 0.5) 100%); }
+/* the red edge of fear: painted once, then only its opacity changes (set from the frame loop) */
+.pc-fear { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 55%, rgb(179 38 30 / 0.5) 100%); }
+/* film grain: one 160 px noise tile, jumping by less than a tile. The layer is only one tile larger than
+   the screen on each side (it used to be four times the screen: 33 million pixels at 4K) */
 .pc-stage.is-horror .pc-fx::after {
-  content: ''; position: absolute; inset: -50%; opacity: 0.14; pointer-events: none;
+  content: ''; position: absolute; inset: -160px; opacity: 0.14; pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   animation: pc-grain 0.5s steps(4) infinite;
 }
 .pc-stage.is-horror:not([data-mode='run']) .pc-fx::after { animation-play-state: paused; }
-@keyframes pc-grain { 0% { transform: translate(0, 0); } 25% { transform: translate(-6%, 4%); } 50% { transform: translate(5%, -3%); } 75% { transform: translate(-3%, -6%); } 100% { transform: translate(4%, 5%); } }
+@keyframes pc-grain { 0% { transform: translate(0, 0); } 25% { transform: translate(-96px, 64px); } 50% { transform: translate(80px, -48px); } 75% { transform: translate(-48px, -96px); } 100% { transform: translate(64px, 80px); } }
 .pc-cross { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgb(247 236 214 / 0.55); box-shadow: 0 0 0 1px rgb(18 10 6 / 0.6); pointer-events: none; }
 
 /* HUD */
@@ -159,6 +161,55 @@
 .pc-tbtn.is-stone { width: 60px; height: 60px; margin-right: 12px; }
 .pc-tbtn.is-stone small { position: absolute; right: -4px; top: -4px; min-width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; font-size: 0.75rem; font-weight: 700; color: var(--on-accent); background: var(--parchment-50); }
 .pc-tbtn:disabled { opacity: 0.4; }
+
+/* ── big-screen console (data-big): one compact block low in the middle, sized in millimetres (--mm) ──
+   Shown for fingers only, like the phone controls; a mouse on the same screen hides it. */
+.pc-stage[data-big] .pc-touch { display: none; }
+.pc-bs {
+  --bs-w: calc(var(--mm) * 206);
+  position: absolute; display: none; width: var(--bs-w); padding: calc(var(--mm) * 2) calc(var(--mm) * 6) calc(var(--mm) * 5);
+  left: clamp(calc(var(--bs-w) / 2 + 8px), calc(var(--bs-x, 0.5) * 100%), calc(100% - var(--bs-w) / 2 - 8px));
+  top: min(calc(var(--bs-y, 1) * 100%), calc(100% - var(--mm) * 8 - env(safe-area-inset-bottom)));
+  transform: translate(-50%, -100%);
+  background: rgb(18 10 6 / 0.62); border: 1px solid rgb(247 236 214 / 0.2); border-radius: calc(var(--mm) * 8);
+  touch-action: none;
+}
+.pc-stage[data-big][data-input='touch'] .pc-bs { display: block; }
+.pc-bs-grip { display: grid; place-items: center; width: calc(var(--mm) * 30); height: calc(var(--mm) * 9); margin: 0 auto calc(var(--mm) * 1); padding: 0; cursor: grab; touch-action: none; color: var(--text); background: rgb(247 236 214 / 0.12); border: 0; border-radius: var(--radius-full); }
+.pc-bs-grip svg { width: calc(var(--mm) * 7); height: calc(var(--mm) * 7); }
+.pc-bs-row { display: flex; align-items: flex-start; justify-content: space-between; gap: calc(var(--mm) * 8); }
+.pc-bs-ctl { display: grid; justify-items: center; gap: calc(var(--mm) * 2); }
+.pc-bs-lbl { font-size: calc(var(--mm) * 5.2); line-height: 1.2; color: var(--text); text-align: center; white-space: nowrap; text-shadow: 0 1px 2px rgb(0 0 0 / 0.9); }
+.pc-bs-lbl small { font-size: 0.85em; color: var(--gold-200); }
+/* the stick: a gold gallop ring (outer band) around the base the knob travels in */
+.pc-bs-stick { position: relative; width: calc(var(--mm) * 72); height: calc(var(--mm) * 72); border-radius: 50%; display: grid; place-items: center; touch-action: none;
+  border: calc(var(--mm) * 1.2) dashed rgb(245 178 107 / 0.55); }
+.pc-bs-stick.is-gallop { border-style: solid; border-color: var(--gold-200); background: rgb(245 178 107 / 0.22); }
+.pc-bs-base { position: relative; width: calc(var(--mm) * 54); height: calc(var(--mm) * 54); border-radius: 50%; pointer-events: none;
+  background: rgb(18 10 6 / 0.5); border: calc(var(--mm) * 0.8) solid rgb(247 236 214 / 0.45); }
+.pc-bs-knob { position: absolute; left: 50%; top: 50%; width: calc(var(--mm) * 22); height: calc(var(--mm) * 22); margin: calc(var(--mm) * -11) 0 0 calc(var(--mm) * -11);
+  border-radius: 50%; background: rgb(125 192 138 / 0.75); box-shadow: 0 0 0 calc(var(--mm) * 0.6) rgb(247 236 214 / 0.5); will-change: transform; }
+.pc-bs-stick.is-held .pc-bs-knob { background: rgb(125 192 138 / 0.95); }
+.pc-bs-mid { display: grid; justify-items: center; gap: calc(var(--mm) * 4); padding-top: calc(var(--mm) * 2); }
+.pc-bs-btn { position: relative; display: grid; place-items: center; padding: 0; border-radius: 50%; cursor: pointer; touch-action: none; color: var(--text);
+  background: rgb(18 10 6 / 0.7); border: calc(var(--mm) * 0.6) solid rgb(247 236 214 / 0.4); }
+.pc-bs-btn svg { width: 50%; height: 50%; }
+.pc-bs-btn.is-gallop { width: calc(var(--mm) * 18); height: calc(var(--mm) * 18); color: var(--on-accent); background: rgb(245 178 107 / 0.9); border-color: var(--gold-100); }
+.pc-bs-btn.is-gallop:active { background: var(--gold-200); }
+.pc-bs-btn.is-stone { width: calc(var(--mm) * 14); height: calc(var(--mm) * 14); }
+.pc-bs-btn.is-stone small { position: absolute; right: calc(var(--mm) * -2); top: calc(var(--mm) * -2); min-width: calc(var(--mm) * 6); height: calc(var(--mm) * 6); display: grid; place-items: center; border-radius: 50%;
+  font-size: calc(var(--mm) * 3.6); font-weight: 700; color: var(--on-accent); background: var(--parchment-50); }
+.pc-bs-btn.is-pause { width: calc(var(--mm) * 12); height: calc(var(--mm) * 12); }
+.pc-bs-btn:disabled { opacity: 0.4; }
+.pc-bs-btn:focus-visible, .pc-bs-grip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.pc-bs-look { width: calc(var(--mm) * 84); height: calc(var(--mm) * 72); display: grid; place-items: center; touch-action: none; color: rgb(247 236 214 / 0.55);
+  border-radius: calc(var(--mm) * 6); background: repeating-linear-gradient(90deg, rgb(247 236 214 / 0.06) 0 calc(var(--mm) * 1), transparent 0 calc(var(--mm) * 8)), rgb(18 10 6 / 0.45);
+  border: calc(var(--mm) * 0.8) solid rgb(247 236 214 / 0.4); }
+.pc-bs-look svg { width: calc(var(--mm) * 16); height: calc(var(--mm) * 16); pointer-events: none; }
+.pc-stage[data-big][data-input='touch'] .pc-toast { bottom: calc(var(--mm) * 122); }
+.pc-bigset { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: 44px; font-size: var(--text-sm); color: var(--text-muted); }
+.pc-bigset > span { margin-right: var(--space-1); }
+.pc-gfxnote { color: var(--text); display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
 
 /* overlays */
 .pc-overlay { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--space-4); background: rgb(8 5 3 / 0.74); overflow: auto; overscroll-behavior: contain; -webkit-user-select: text; user-select: text; }

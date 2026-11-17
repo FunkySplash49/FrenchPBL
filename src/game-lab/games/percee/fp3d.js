@@ -120,8 +120,13 @@ export function createFP(canvas) {
   const coarse = window.matchMedia('(pointer: coarse)').matches;
   const dpr = window.devicePixelRatio || 1;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr <= 1 && !coarse, powerPreference: 'high-performance', stencil: false });
-  const maxRatio = Math.min(dpr, 1.5);
+  // physical pixels per CSS pixel of the canvas: the device ratio times the site's root zoom (1.5 or 2 on 4K screens)
+  const zoomOf = () => { const r = canvas.getBoundingClientRect(); return canvas.offsetWidth && r.width ? r.width / canvas.offsetWidth : 1; };
+  let maxRatio = Math.min(dpr, 1.5);
   let resIdx = 0; let ema = 16.7; let slow = 0; let fast = 0; let probe = 0; let probeMs = 0; let resHold = 0;
+  let losses = 0;
+  let floorIdx = 0;        // raised after a lost GPU context, so a weak GPU is not pushed over the edge again
+  let resPending = true;   // a size change waits for the next draw: resizing clears the canvas, drawing at once avoids a black frame
   renderer.setPixelRatio(maxRatio);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
@@ -157,15 +162,20 @@ export function createFP(canvas) {
 
   let wpx = 1; let hpx = 1;
   // never render more than ~1080p worth of pixels, whatever the screen
-  const applyRes = () => {
+  const applyRes = () => { resPending = true; };
+  const flushRes = () => {
+    resPending = false;
     const cap = Math.sqrt(2.2e6 / (wpx * hpx));
-    renderer.setPixelRatio(Math.min(maxRatio, cap) * RES_STEPS[resIdx]); renderer.setSize(wpx, hpx, false);
+    const ratio = Math.min(maxRatio, cap) * RES_STEPS[resIdx];
+    const bw = Math.max(1, Math.floor(wpx * ratio)); const bh = Math.max(1, Math.floor(hpx * ratio));
+    if (canvas.width === bw && canvas.height === bh && Math.abs(renderer.getPixelRatio() - ratio) < 1e-6) return; // same buffer: never clear it for nothing
+    renderer.setPixelRatio(ratio); renderer.setSize(wpx, hpx, false);
   };
   const resize = () => {
-    wpx = Math.max(1, canvas.clientWidth); hpx = Math.max(1, canvas.clientHeight);
+    const nw = Math.max(1, canvas.clientWidth); const nh = Math.max(1, canvas.clientHeight);
+    maxRatio = Math.min(dpr * zoomOf(), 1.5);
+    if (nw !== wpx || nh !== hpx) { wpx = nw; hpx = nh; camera.aspect = wpx / hpx; camera.updateProjectionMatrix(); }
     applyRes();
-    camera.aspect = wpx / hpx;
-    camera.updateProjectionMatrix();
   };
   let baseFov = 70; let fov = 70;
   const fitFov = () => {
@@ -751,21 +761,25 @@ export function createFP(canvas) {
       m.tex.offset.set((x / 150) * 3 + (still ? 0 : t * 0.006 * (i ? -1 : 1)), (-z / 150) * 3 + (still ? 0 : t * 0.004));
     }
 
+    if (resPending) flushRes();
     renderer.render(scene, camera);
 
     // dynamic resolution: drop a step after ~30 slow frames, climb back after ~3 s of fast ones
     const ms = dt * 1000;
     if (ms > 0 && ms < 250) {
       ema = ema * 0.95 + ms * 0.05;
+      // 60 fps is the target. A 30 Hz panel and a GPU stuck at 30 fps look the same from here,
+      // so the probe below tells them apart: if a lower resolution does not help, it goes back up.
+      const target = 16.7;
       if (resHold > 0) resHold -= dt;
       if (probe > 0 && --probe === 0 && ema > probeMs * 0.88) {
-        // the lower resolution did not make frames faster (a 30 Hz screen, or the CPU is the limit):
+        // the lower resolution did not make frames faster (the CPU or the compositor is the limit):
         // go back up and stop trying for a while, rather than blurring the picture for nothing
-        resIdx--; resHold = 45; slow = 0; fast = 0; ema = 16.7; applyRes();
+        resIdx--; resHold = 45; slow = 0; fast = 0; ema = target; applyRes();
       } else if (probe === 0) {
-        if (ema > 16.7 * 1.3) { slow++; fast = 0; } else if (ema < 16.7 * 1.08) { fast++; slow = 0; } else { slow = 0; fast = 0; }
+        if (ema > target * 1.3) { slow++; fast = 0; } else if (ema < target * 1.08) { fast++; slow = 0; } else { slow = 0; fast = 0; }
         if (slow > 30 && resIdx < RES_STEPS.length - 1 && resHold <= 0) { probeMs = ema; resIdx++; slow = 0; probe = 75; applyRes(); }
-        else if (fast > 240 && resIdx > 0) { resIdx--; fast = 0; ema = 16.7 * 1.15; applyRes(); }
+        else if (fast > 240 && resIdx > floorIdx) { resIdx--; fast = 0; ema = target * 1.15; applyRes(); }
       }
     }
   }
@@ -777,7 +791,11 @@ export function createFP(canvas) {
     resize() { resize(); fitFov(); fov = baseFov; camera.fov = fov; camera.updateProjectionMatrix(); },
     /** a jolt (trap, being spotted) */
     kick(k = 0.5) { if (L) L.kickT = k; },
-    stats() { const i = renderer.info.render; return { calls: i.calls, triangles: i.triangles, scale: RES_STEPS[resIdx], ratio: renderer.getPixelRatio(), ms: Math.round(ema * 10) / 10, fov: Math.round(fov) }; },
+    stats() { const i = renderer.info.render; return { calls: i.calls, triangles: i.triangles, scale: RES_STEPS[resIdx], ratio: renderer.getPixelRatio(), buffer: [canvas.width, canvas.height], ms: Math.round(ema * 10) / 10, fov: Math.round(fov) }; },
+    /** after the GPU dropped the context and gave it back; from the second time on, start one step lighter */
+    restored() { losses++; if (losses > 1) floorIdx = Math.min(RES_STEPS.length - 2, floorIdx + 1); resIdx = Math.max(resIdx, floorIdx); resHold = 20; slow = fast = probe = 0; resPending = true; },
+    /** dev only: force a resolution step */
+    setStep(i) { resIdx = Math.max(0, Math.min(RES_STEPS.length - 1, i)); probe = 0; resHold = 60; applyRes(); },
     /** where the next gap is, for tests */
     gap() { return world ? nextGap(world) : null; },
     dispose() {

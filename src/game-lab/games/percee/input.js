@@ -8,6 +8,10 @@
  *  touch     left part of the view = a joystick that appears under the thumb,
  *            the rest = drag to look. Decided per event from PointerEvent.pointerType, so a
  *            touch monitor with a mouse plugged in works with both at once.
+ *  big screen (a wall-sized touch panel, `o.big()`): one console docked low in the middle of the
+ *            screen, so a standing player reaches everything with two hands close together:
+ *            a fixed stick to ride (push it out onto the gold ring to gallop), a look pad beside it,
+ *            and dragging anywhere else above it also looks around. Sizes are physical (`o.mm()`).
  *  gamepad   left stick ride, right stick look, A gallop, X / B stone, Start pause.
  *
  * Esc while the pointer is locked never reaches the page: the browser just releases the lock.
@@ -20,6 +24,9 @@ const TURN_KEYS = 2.3;       // rad / s
 const JOY_R = 58;            // px
 const DEAD = 0.15;
 const UI = 'button, a, input, select, label, [data-ui]';
+// big-screen console: look gain in radians per millimetre of finger travel
+const PAD_GAIN = 0.03;       // across the 80 mm look pad: about 140°
+const FREE_GAIN = 0.012;     // dragging on the view itself: a 30 cm sweep turns about 200°
 
 export function createInput(o) {
   const { surface, canvas } = o;
@@ -29,7 +36,8 @@ export function createInput(o) {
   };
   const keys = Object.create(null);
   let joyId = -1; let joyX = 0; let joyY = 0; let jx = 0; let jy = 0;
-  let lookId = -1; let lookX = 0; let lookY = 0;
+  let joyBig = false; let joyR = 0; let joyRing = 0; let joyGallop = false; // big-screen stick: travel radius and gallop-ring radius, client px
+  let lookId = -1; let lookX = 0; let lookY = 0; let lookGain = 0;
   let dragId = -1; let dragX = 0; let dragY = 0;
   let galBtn = false; let padGallop = false; let padThrow = false; let padPause = false; let hasPad = false;
   let expectUnlock = false;
@@ -107,19 +115,49 @@ export function createInput(o) {
       }
       return;
     }
-    const { r } = zoom();
+    const { r, z } = zoom();
+    if (o.big?.()) {
+      const zone = e.target.closest && e.target.closest('[data-bs]');
+      const kindOf = zone ? zone.dataset.bs : '';
+      if (kindOf === 'stick' && joyId === -1) {
+        // a fixed stick: its centre is the console's, not where the finger landed
+        const b = zone.getBoundingClientRect();
+        joyId = e.pointerId; joyX = b.left + b.width / 2; joyY = b.top + b.height / 2; jx = 0; jy = 0;
+        joyBig = true; joyR = b.width * 0.25; joyRing = b.width * 0.37;
+        moveJoy(e);
+      } else if (kindOf !== 'stick' && lookId === -1 && o.mode() === '3d') {
+        lookId = e.pointerId; lookX = e.clientX; lookY = e.clientY;
+        lookGain = (kindOf === 'look' ? PAD_GAIN : FREE_GAIN) / Math.max(0.1, o.mm() * z); // per client px
+      } else if (!zone && o.mode() !== '3d' && joyId === -1) {
+        joyId = e.pointerId; joyX = e.clientX; joyY = e.clientY; jx = 0; jy = 0; joyBig = false;
+        moveJoy(e);
+      } else return;
+      try { surface.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
+      e.preventDefault();
+      return;
+    }
     const left = o.mode() !== '3d' || e.clientX - r.left < r.width * 0.45;
     if (left && joyId === -1) {
+      joyBig = false;
       joyId = e.pointerId; joyX = e.clientX; joyY = e.clientY; jx = 0; jy = 0;
       moveJoy(e);
     } else if (lookId === -1 && o.mode() === '3d') {
-      lookId = e.pointerId; lookX = e.clientX; lookY = e.clientY;
+      lookId = e.pointerId; lookX = e.clientX; lookY = e.clientY; lookGain = 2.6 / Math.min(r.width, r.height);
     } else return;
     try { surface.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
     e.preventDefault();
   };
   function moveJoy(e) {
     const { r, z } = zoom();
+    if (joyBig) {
+      const dx = e.clientX - joyX; const dy = e.clientY - joyY; const d = Math.hypot(dx, dy);
+      const ux = d ? dx / d : 0; const uy = d ? dy / d : 0; const cl = Math.min(d, joyR);
+      const m = cl / joyR; const mm = m < DEAD ? 0 : (m - DEAD) / (1 - DEAD);
+      jx = ux * mm; jy = uy * mm;
+      joyGallop = d > joyRing && mm > 0;
+      o.onBigJoy?.(true, (ux * cl) / z, (uy * cl) / z, joyGallop);
+      return;
+    }
     const R = JOY_R * z;
     const dx = e.clientX - joyX; const dy = e.clientY - joyY; const d = Math.hypot(dx, dy);
     const ux = d ? dx / d : 0; const uy = d ? dy / d : 0; const cl = Math.min(d, R);
@@ -137,12 +175,16 @@ export function createInput(o) {
     }
     if (e.pointerId === joyId) moveJoy(e);
     else if (e.pointerId === lookId) {
-      if (o.active()) { const { r } = zoom(); look(e.clientX - lookX, e.clientY - lookY, 2.6 / Math.min(r.width, r.height)); }
+      if (o.active()) look(e.clientX - lookX, e.clientY - lookY, lookGain);
       lookX = e.clientX; lookY = e.clientY;
     }
   };
+  function endJoy() {
+    if (joyBig) o.onBigJoy?.(false, 0, 0, false); else o.onJoy?.(false, 0, 0, 0, 0);
+    joyId = -1; jx = 0; jy = 0; joyGallop = false; joyBig = false;
+  }
   const onUp = (e) => {
-    if (e.pointerId === joyId) { joyId = -1; jx = 0; jy = 0; o.onJoy?.(false, 0, 0, 0, 0); }
+    if (e.pointerId === joyId) endJoy();
     if (e.pointerId === lookId) lookId = -1;
     if (e.pointerId === dragId) dragId = -1;
   };
@@ -199,9 +241,9 @@ export function createInput(o) {
     exitLock,
     setGallop(v) { galBtn = v; },
     /** touch look from a HUD button the thumb is resting on (px) */
-    lookBy(dx, dy) { if (o.active()) { const { r } = zoom(); look(dx, dy, 2.6 / Math.min(r.width, r.height)); } },
-    reset(yaw) { s.yaw = yaw; s.pitch = -0.06; clearKeys(); joyId = lookId = dragId = -1; jx = jy = 0; galBtn = false; o.onJoy?.(false, 0, 0, 0, 0); },
-    release() { clearKeys(); if (joyId !== -1) { joyId = -1; jx = jy = 0; o.onJoy?.(false, 0, 0, 0, 0); } lookId = dragId = -1; galBtn = false; s.moveX = s.moveY = 0; s.gallop = false; },
+    lookBy(dx, dy) { if (o.active()) { const { r, z } = zoom(); look(dx, dy, o.big?.() ? FREE_GAIN / Math.max(0.1, o.mm() * z) : 2.6 / Math.min(r.width, r.height)); } },
+    reset(yaw) { s.yaw = yaw; s.pitch = -0.06; clearKeys(); endJoy(); o.onJoy?.(false, 0, 0, 0, 0); lookId = dragId = -1; galBtn = false; },
+    release() { clearKeys(); if (joyId !== -1) endJoy(); lookId = dragId = -1; galBtn = false; s.moveX = s.moveY = 0; s.gallop = false; },
     /** once per frame: fold keys, joystick and gamepad into moveX (right) / moveY (forward) / gallop */
     frame(dt) {
       const k = keys; const is3d = o.mode() === '3d';
@@ -209,7 +251,7 @@ export function createInput(o) {
       let my = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
       const lr = (k.ArrowRight ? 1 : 0) - (k.ArrowLeft ? 1 : 0);
       if (is3d) s.yaw += lr * TURN_KEYS * dt; else mx += lr;
-      let gal = !!(k.ShiftLeft || k.ShiftRight || k.Space) || galBtn;
+      let gal = !!(k.ShiftLeft || k.ShiftRight || k.Space) || galBtn || joyGallop;
       mx += jx; my -= jy;
       if (hasPad && navigator.getGamepads) {
         const pads = navigator.getGamepads(); let pad = null;

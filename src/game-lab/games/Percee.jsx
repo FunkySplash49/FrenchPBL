@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Share2, Zap, Pause, Play, Eye, EyeOff, Copy, Maximize, RotateCcw, LogOut, ChevronUp, ChevronDown, Circle } from 'lucide-react';
+import { Volume2, VolumeX, Share2, Zap, Pause, Play, Eye, EyeOff, Copy, Maximize, RotateCcw, LogOut, ChevronUp, ChevronDown, Circle, GripHorizontal, MoveHorizontal } from 'lucide-react';
 import { GameFrame, Card, Debrief, useT, haptic, usePersist } from '../kit';
 import { generate, step, render, createMinimap, throwStone, medalFor, nextGap, angDiff, NIGHTS, TUNE, WORLD } from './percee/engine';
 import { createFP } from './percee/fp3d';
 import { createInput } from './percee/input';
 import { makeAudio } from './percee/audio';
 import { loadBoard, saveBoard, addEntry, standings, encodeScore, decodeScore, matchSeed, todaySeed, randomSeed, cleanInitials, fmtTime } from './percee/board';
-import { NIGHT_LINES, FACTS, HINTS, MEDALS } from './percee/text';
+import { NIGHT_LINES, FACTS, HINTS, MEDALS, BIG_CONTROLS, BIG_LABELS } from './percee/text';
 import './Percee.css';
 
 /*
@@ -21,6 +21,29 @@ import './Percee.css';
 
 const readUrlSeed = () => new URLSearchParams(window.location.search).get('seed');
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ── big-screen touch mode ──
+   A wall-sized touch panel (the classroom's 4K Samsung) is played standing up, by one student who
+   cannot reach both sides of the screen. There the phone layout (stick under the left thumb, look on
+   the right, buttons in the corners) is replaced by one console low in the middle of the screen.
+   On: touch-capable and a large viewport in device-independent pixels (a phone or tablet never is),
+   or forced with ?bigscreen (?bigscreen=0 forces it off), or the setting (auto / on / off). */
+const touchCapable = () => (navigator.maxTouchPoints || 0) > 0 || window.matchMedia('(any-pointer: coarse)').matches;
+const bigAuto = () => touchCapable() && (Math.max(window.innerWidth, window.innerHeight) >= 1600 || (window.screen?.width || 0) >= 2560);
+const urlBig = () => {
+  const q = new URLSearchParams(window.location.search);
+  if (!q.has('bigscreen')) return null;
+  return !/^(0|off|false|no)$/i.test(q.get('bigscreen') || '');
+};
+/** CSS px (inside the zoomed page) per physical millimetre, for console sizes. Browsers do not know the
+    panel's size: a 4K-class panel is taken as a 75-inch board (about 1660 mm wide), a smaller one as
+    65 inches, and the result is kept within sane bounds. The console size setting corrects the rest. */
+const mmUnit = (size = 1) => {
+  const dpr = window.devicePixelRatio || 1; const sw = window.screen?.width || window.innerWidth;
+  const dipPerMm = Math.min(3.4, Math.max(1.67, sw / (sw * dpr >= 3000 ? 1660 : 1440)));
+  const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+  return (dipPerMm / z) * size;
+};
 
 function cssColors(el) {
   const cs = getComputedStyle(el);
@@ -152,8 +175,8 @@ export default function Percee() {
   const [phase, setPhaseS] = useState('menu');   // menu | play | between | caught | over
   const [mode, setModeS] = useState('ready');    // ready | run | paused   (only meaningful in 'play')
   const phaseRef = useRef('menu'); const modeRef = useRef('ready');
-  const setPhase = (p) => { phaseRef.current = p; setPhaseS(p); dirty.current = true; };
-  const setMode = (m) => { modeRef.current = m; setModeS(m); dirty.current = true; };
+  const setPhase = (p) => { phaseRef.current = p; setPhaseS(p); markDirty(); };
+  const setMode = (m) => { modeRef.current = m; setModeS(m); markDirty(); };
 
   const [seed, setSeed] = useState(() => readUrlSeed() || todaySeed());
   const [night, setNight] = useState(1);
@@ -176,8 +199,23 @@ export default function Percee() {
   const [iniRaw, setIni] = usePersist('percee-ini', 'AAA');
   const ini = cleanInitials(iniRaw);
   const [board, setBoard] = useState(loadBoard);
+  const [bigPref, setBigPref] = usePersist('percee-big', 'auto');        // auto | on | off
+  const [bigSize, setBigSize] = usePersist('percee-bigsize', 1);         // console size, 0.8× to 1.6×
+  const [bigPos, setBigPos] = usePersist('percee-bigpos', { x: 0.5, y: 1 }); // console bottom-centre, fractions of the screen
+  const [bigUrl, setBigUrl] = useState(urlBig);                          // ?bigscreen wins until the setting is changed
+  const [bigAutoOn, setBigAutoOn] = useState(bigAuto);
+  const big = bigUrl !== null ? bigUrl : bigPref === 'on' ? true : bigPref === 'off' ? false : bigAutoOn;
+  const [mm, setMm] = useState(() => mmUnit(bigSize));
+  const [gfxLost, setGfxLost] = useState(null);                          // null | 'lost' | 'stuck' (the GPU dropped the 3D view)
   const live = useRef({});
-  live.current = { settings, muted, horror, view, kind, cooldown, seed };
+  live.current = { settings, muted, horror, view, kind, cooldown, seed, big, mm };
+  useEffect(() => {
+    const on = () => { setBigAutoOn(bigAuto()); setMm(mmUnit(bigSize)); };
+    on(); window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, [bigSize]);
+  const wakeRef = useRef(null);
+  const markDirty = () => { dirty.current = true; wakeRef.current?.(); };
 
   const active = phase !== 'menu';
   // finger or mouse? Decided by the last pointer used, from the very first tap on the menu
@@ -242,6 +280,7 @@ export default function Percee() {
 
   /* ── pause / resume ── */
   const begin = (e) => {
+    if (gfxLost) return;
     goFull();
     const a = audio(); a.unlock(); a.stopLoops(); a.ambience(worldRef.current.weather, horror);
     const mouse = e ? (e.nativeEvent?.pointerType ? e.nativeEvent.pointerType === 'mouse' : live.current.kind === 'mouse') : false;
@@ -261,7 +300,7 @@ export default function Percee() {
     } else inp?.exitLock();
   };
   const resume = (e) => {
-    if (phaseRef.current !== 'play' || modeRef.current !== 'paused' || performance.now() < coolUntil.current) return;
+    if (phaseRef.current !== 'play' || modeRef.current !== 'paused' || performance.now() < coolUntil.current || gfxLost) return;
     audioRef.current?.resume();
     setMode('run');
     const mouse = e?.nativeEvent?.pointerType ? e.nativeEvent.pointerType === 'mouse' : live.current.kind === 'mouse';
@@ -326,7 +365,7 @@ export default function Percee() {
     const stepIn = { x: 0, y: 0, sprint: false, face: undefined };
     const viewOut = { yaw: 0, pitch: 0, still };
     let loaded = null; let mini = null; let raf = 0; let last = performance.now(); let frameN = 0; let hudT = 0;
-    let lastBeat = 0; let lastHoof = 0; let nextHorn = 10; let lastWhisper = 0; let compW = 0;
+    let lastBeat = 0; let lastHoof = 0; let nextHorn = 10; let lastWhisper = 0; let compW = 0; let lastFear = -1;
 
     const inp = createInput({
       surface, canvas, kind: live.current.kind,
@@ -344,6 +383,14 @@ export default function Percee() {
         else if (modeRef.current === 'paused') fns.current.resume();
         return true;
       },
+      big: () => live.current.big,
+      mm: () => live.current.mm,
+      onBigJoy: (on, dx, dy, gallop) => {
+        if (!d.bsKnob) return;
+        d.bsKnob.style.transform = on ? `translate(${dx}px, ${dy}px)` : '';
+        d.bsStick?.classList.toggle('is-gallop', on && gallop);
+        d.bsStick?.classList.toggle('is-held', on);
+      },
       onJoy: (on, x, y, dx, dy) => {
         const j = d.joy; if (!j) return;
         j.style.display = on ? 'block' : 'none';
@@ -352,13 +399,19 @@ export default function Percee() {
     });
     inputRef.current = inp;
 
+    // a new size clears the canvas: the frame is drawn again right away (inside the ResizeObserver
+    // callback, before the browser paints), so a resize never shows a black frame
+    let drawNow = null;
     const resize = () => {
-      dirty.current = true;
       compW = d.comp ? d.comp.clientWidth : 0;
-      if (fp) { fp.resize(); return; }
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.round(canvas.clientWidth * dpr); canvas.height = Math.round(canvas.clientHeight * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (fp) fp.resize();
+      else {
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const bw = Math.round(canvas.clientWidth * dpr); const bh = Math.round(canvas.clientHeight * dpr);
+        if (canvas.width !== bw || canvas.height !== bh) { canvas.width = bw; canvas.height = bh; }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      if (drawNow) drawNow(); else markDirty();
     };
     const ro = new ResizeObserver(resize); ro.observe(canvas);
     resize();
@@ -427,7 +480,9 @@ export default function Percee() {
       // HUD written straight to the DOM (bars, compass)
       if (d.alarm) d.alarm.style.transform = `scaleX(${w.alarm / 100})`;
       if (d.stam) d.stam.style.transform = `scaleX(${p.stam / 100})`;
-      if (d.fx) d.fx.style.setProperty('--fear', (w.alarm / 100).toFixed(2));
+      // the red edge of fear is an opacity change only (no repaint of a full-screen gradient every frame)
+      const fearK = Math.round(w.alarm) / 100;
+      if (d.fear && fearK !== lastFear) { lastFear = fearK; d.fear.style.opacity = String(fearK); }
       if (is3d && compW) {
         for (let i = 0; i < 3; i++) {
           const r = w.riders[i]; const el = d[`r${i}`]; if (!el) continue;
@@ -451,26 +506,44 @@ export default function Percee() {
       }
     };
 
+    // the loop stops completely while paused, on an overlay, or in a hidden tab, and is woken by markDirty()
     const frame = (now) => {
-      raf = requestAnimationFrame(frame);
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      const running = modeRef.current === 'run' && phaseRef.current === 'play' && !document.hidden;
-      if (!running && !dirty.current) return;   // paused: nothing is simulated or drawn
+      const running = modeRef.current === 'run' && phaseRef.current === 'play' && !document.hidden && !lostNow;
+      if (!running && !dirty.current) { raf = 0; return; }
+      raf = requestAnimationFrame(frame);
       dirty.current = false;
       tick(running ? dt : 0, running, now);
     };
+    let lostNow = false;
+    const wake = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+    wakeRef.current = wake;
+    drawNow = () => { if (!lostNow) tick(0, false, performance.now()); };
     raf = requestAnimationFrame(frame);
 
     const onHide = () => { if (document.hidden) fns.current.pause('blur'); };
     // entering or leaving full screen can blur the window for a moment on some browsers: not a reason to pause
     const onFull = () => { fullAt.current = performance.now(); };
     const onBlur = () => { if (performance.now() - fullAt.current > 500) fns.current.pause('blur'); };
-    const onLost = (e) => { e.preventDefault(); fns.current.pause('blur'); };
+    // the GPU can drop the 3D context (driver reset, memory pressure on a weak GPU at 4K): pause behind the
+    // menu, wait for it to come back, never draw into a dead context; a second loss starts one step lighter
+    let stuckT = 0;
+    const onLost = (e) => {
+      e.preventDefault(); lostNow = true;
+      fns.current.pause('gfx'); setGfxLost('lost');
+      clearTimeout(stuckT); stuckT = setTimeout(() => setGfxLost((g) => (g ? 'stuck' : g)), 5000);
+    };
+    const onRestored = () => {
+      lostNow = false; clearTimeout(stuckT); setGfxLost(null);
+      fp?.restored(); if (worldRef.current && fp) fp.load(worldRef.current, { horror: live.current.horror });
+      markDirty();
+    };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('blur', onBlur);
     document.addEventListener('fullscreenchange', onFull);
     document.addEventListener('webkitfullscreenchange', onFull);
     canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
 
     if (import.meta.env.DEV) {
       // test hook, dev only — see the handoff notes for examples
@@ -493,15 +566,19 @@ export default function Percee() {
         tick(n = 1, dt = 1 / 60) { const was = modeRef.current; for (let i = 0; i < n && phaseRef.current === 'play'; i++) tick(dt, was === 'run', performance.now()); return this.state(); },
         begin() { if (modeRef.current === 'ready') { modeRef.current = 'run'; setModeS('run'); } },
         pause() { fns.current.pause('key'); }, resume() { fns.current.resume(); },
-        teleport(x, y) { const p = worldRef.current.player; p.x = x; p.y = y; p.vx = p.vy = 0; dirty.current = true; },
-        setYaw(a) { inp.state.yaw = a; dirty.current = true; }, setPitch(a) { inp.state.pitch = a; dirty.current = true; },
-        lookAt(x, y) { const p = worldRef.current.player; inp.state.yaw = Math.atan2(y - p.y, x - p.x); dirty.current = true; },
+        teleport(x, y) { const p = worldRef.current.player; p.x = x; p.y = y; p.vx = p.vy = 0; markDirty(); },
+        setYaw(a) { inp.state.yaw = a; markDirty(); }, setPitch(a) { inp.state.pitch = a; markDirty(); },
+        lookAt(x, y) { const p = worldRef.current.player; inp.state.yaw = Math.atan2(y - p.y, x - p.x); markDirty(); },
         /** hold a direction for `secs` of game time: x = right, y = forward (3D) / x = east, y = north (2D) */
         move(x, y, gallop = false, secs = 1) { hook.current = { x, y, gallop, until: worldRef.current.time + secs }; },
         detect(v) { worldRef.current.alarm = v; },
         rally(i = 0) { const w = worldRef.current; const r = w.riders[i]; this.teleport(r.hx, r.hy); },
         gap() { return nextGap(worldRef.current); },
         throwStone() { fns.current.doThrow(); },
+        /** dev: force a resolution step, or simulate a lost / restored GPU context */
+        resStep(i) { fp?.setStep(i); markDirty(); },
+        loseContext() { this.lc = this.lc || canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context'); this.lc?.loseContext(); return !!this.lc; },
+        restoreContext() { this.lc?.restoreContext(); },
         /** escape the night at once */
         finish() { const w = worldRef.current; const g = w.outer.gapPts[0]; const a = Math.atan2(g.y - w.cy, g.x - w.cx); this.teleport(Math.max(12, Math.min(WORLD.w - 12, g.x + Math.cos(a) * 90)), Math.max(12, Math.min(WORLD.h - 12, g.y + Math.sin(a) * 90))); },
         fail(reason = 'seen') { const w = worldRef.current; if (reason === 'dawn') w.time = w.limit; else w.alarm = 100; },
@@ -509,12 +586,14 @@ export default function Percee() {
     }
 
     return () => {
-      cancelAnimationFrame(raf); ro.disconnect();
+      cancelAnimationFrame(raf); raf = 0; ro.disconnect();
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('blur', onBlur);
       document.removeEventListener('fullscreenchange', onFull);
       document.removeEventListener('webkitfullscreenchange', onFull);
       canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
+      clearTimeout(stuckT); wakeRef.current = null; setGfxLost(null);
       inp.dispose(); inputRef.current = null;
       fp?.dispose(); fpRef.current = null;
       if (import.meta.env.DEV) delete window.__percee;
@@ -575,6 +654,7 @@ export default function Percee() {
     const h = HINTS[hud.hint];
     if (h.fr) return t(h);
     if (!is3d && h.d) return t(h.d);
+    if (touch && big && h.b) return t(h.b);
     return t(touch ? h.t : h.m);
   })();
   const statusText = hud.status === 'suspect' ? t({ fr: 'Soupçon !', en: 'Suspected!' })
@@ -583,6 +663,7 @@ export default function Percee() {
         : hud.hidden ? t({ fr: 'Caché', en: 'Hidden' }) : t({ fr: 'Invisible', en: 'Unseen' });
   const code = result && savedId ? encodeScore(result.seed, { ini, nights: result.nights, riders: result.riders, time: result.time, medals: result.medals }) : '';
   const setRef = (k) => (el) => { dom.current[k] = el; };
+  const d0 = () => dom.current;
 
   const SettingsRow = (
     <div className="pc-settings">
@@ -593,12 +674,30 @@ export default function Percee() {
       </label>
       <label className="pc-toggle"><input type="checkbox" checked={!!settings.invertY} onChange={(e) => setSettings((s) => ({ ...s, invertY: e.target.checked }))} /><span>{t({ fr: 'Inverser l’axe vertical', en: 'Invert vertical look' })}</span></label>
       <label className="pc-toggle"><input type="checkbox" checked={!muted} onChange={(e) => setMuted(!e.target.checked)} /><span>{t({ fr: 'Son', en: 'Sound' })}</span></label>
+      {(touchCapable() || big) && (
+        <div className="pc-bigset" role="group" aria-label={t({ fr: 'Commandes grand écran', en: 'Big-screen controls' })}>
+          <span>{t({ fr: 'Commandes grand écran', en: 'Big-screen controls' })}</span>
+          {[['auto', { fr: 'Auto', en: 'Auto' }], ['on', { fr: 'Oui', en: 'On' }], ['off', { fr: 'Non', en: 'Off' }]].map(([v, l]) => {
+            const on = bigUrl === null ? bigPref === v : v === (bigUrl ? 'on' : 'off');
+            return <button key={v} type="button" className={`gf-btn${on ? ' is-on' : ''}`} aria-pressed={on} onClick={() => { setBigUrl(null); setBigPref(v); }}>{t(l)}</button>;
+          })}
+        </div>
+      )}
+      {big && (
+        <label className="pc-range">
+          <span>{t({ fr: 'Taille de la console', en: 'Console size' })}</span>
+          <input type="range" min="0.8" max="1.6" step="0.1" value={bigSize} onChange={(e) => setBigSize(Number(e.target.value))} />
+          <output>{Number(bigSize).toFixed(1)}×</output>
+        </label>
+      )}
     </div>
   );
 
   const Controls = (
     <ul className="pc-keys">
-      {touch ? (
+      {touch && big ? (
+        BIG_CONTROLS.map((l, i) => <li key={i}>{t(l)}</li>)
+      ) : touch ? (
         <>
           <li>{t({ fr: 'Pouce gauche : avancer', en: 'Left thumb: ride' })}</li>
           <li>{t({ fr: 'Pouce droit : regarder', en: 'Right thumb: look' })}</li>
@@ -615,11 +714,12 @@ export default function Percee() {
   );
 
   const stage = active && createPortal(
-    <div className={`pc-stage${horror ? ' is-horror' : ''}`} ref={stageRef} data-input={kind} data-view={view} data-mode={phase === 'play' ? mode : phase}>
+    <div className={`pc-stage${horror ? ' is-horror' : ''}`} ref={stageRef} data-input={kind} data-view={view} data-mode={phase === 'play' ? mode : phase}
+      data-big={big ? '1' : undefined} style={big ? { '--mm': `${mm}px`, '--bs-x': bigPos.x, '--bs-y': bigPos.y } : undefined}>
       <div className="pc-surface" ref={surfaceRef}>
         <canvas key={view} ref={canvasRef} className="pc-canvas" tabIndex={0} role="application"
           aria-label={t({ fr: 'Vue de nuit : chevauchez hors d’Alésia sans être vu', en: 'Night view: ride out of Alésia unseen' })} />
-        <span className="pc-fx" ref={setRef('fx')} aria-hidden="true" />
+        <span className="pc-fx" ref={setRef('fx')} aria-hidden="true"><span className="pc-fear" ref={setRef('fear')} /></span>
         {is3d && <span className="pc-cross" aria-hidden="true" />}
 
         <div className="pc-hud">
@@ -686,6 +786,54 @@ export default function Percee() {
             </button>
           </div>
         )}
+        {big && phase === 'play' && mode === 'run' && (
+          <div className="pc-bs" ref={setRef('bs')}>
+            <button type="button" className="pc-bs-grip" aria-label={t(BIG_LABELS.move)} title={t(BIG_LABELS.move)}
+              onPointerDown={(e) => {
+                e.preventDefault(); const b = e.currentTarget; try { b.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
+                const box = d0().bs?.getBoundingClientRect(); if (!box) return;
+                b.dataset.ox = e.clientX - (box.left + box.width / 2); b.dataset.oy = e.clientY - box.bottom;
+              }}
+              onPointerMove={(e) => {
+                const b = e.currentTarget; if (b.dataset.ox === undefined) return;
+                const sr = surfaceRef.current.getBoundingClientRect();
+                const x = (e.clientX - Number(b.dataset.ox) - sr.left) / sr.width; const y = (e.clientY - Number(b.dataset.oy) - sr.top) / sr.height;
+                const st = stageRef.current.style; st.setProperty('--bs-x', Math.max(0, Math.min(1, x))); st.setProperty('--bs-y', Math.max(0.3, Math.min(1, y)));
+              }}
+              onPointerUp={(e) => {
+                const b = e.currentTarget; if (b.dataset.ox === undefined) return; delete b.dataset.ox; delete b.dataset.oy;
+                const st = stageRef.current.style; setBigPos({ x: Number(st.getPropertyValue('--bs-x')) || 0.5, y: Number(st.getPropertyValue('--bs-y')) || 1 });
+              }}
+              onPointerCancel={(e) => { delete e.currentTarget.dataset.ox; delete e.currentTarget.dataset.oy; }}>
+              <GripHorizontal size={18} aria-hidden="true" />
+            </button>
+            <div className="pc-bs-row">
+              <div className="pc-bs-ctl">
+                <div className="pc-bs-stick" data-bs="stick" ref={setRef('bsStick')} role="img" aria-label={`${t(BIG_LABELS.stick)}, ${t(BIG_LABELS.ring)}`}>
+                  <span className="pc-bs-base"><span className="pc-bs-knob" ref={setRef('bsKnob')} /></span>
+                </div>
+                <span className="pc-bs-lbl">{t(BIG_LABELS.stick)} <small>· {t(BIG_LABELS.ring)}</small></span>
+              </div>
+              <div className="pc-bs-mid">
+                <button type="button" className="pc-bs-btn is-gallop"
+                  onPointerDown={(e) => { e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* synthetic */ } inputRef.current?.setGallop(true); haptic('light'); }}
+                  onPointerUp={() => inputRef.current?.setGallop(false)} onPointerCancel={() => inputRef.current?.setGallop(false)}
+                  onLostPointerCapture={() => inputRef.current?.setGallop(false)}
+                  aria-label={t({ fr: 'Galop (maintenir)', en: 'Gallop (hold)' })}><Zap size={22} aria-hidden="true" /></button>
+                <button type="button" className="pc-bs-btn is-stone" disabled={hud.stones <= 0}
+                  onPointerDown={(e) => { e.preventDefault(); doThrow(); }} aria-label={t({ fr: 'Lancer une pierre', en: 'Throw a stone' })}>
+                  <Circle size={18} aria-hidden="true" /><small>{hud.stones}</small></button>
+                <button type="button" className="pc-bs-btn is-pause" onClick={() => pause('key')} aria-label={t({ fr: 'Pause', en: 'Pause' })}><Pause size={16} aria-hidden="true" /></button>
+              </div>
+              {is3d && (
+                <div className="pc-bs-ctl">
+                  <div className="pc-bs-look" data-bs="look" role="img" aria-label={t(BIG_LABELS.look)}><MoveHorizontal size={28} aria-hidden="true" /></div>
+                  <span className="pc-bs-lbl">{t(BIG_LABELS.look)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {lockNote && phase === 'play' && mode === 'run' && !touch && is3d && (
           <p className="pc-locknote">{t({ fr: 'Cliquez dans la vue pour capturer la souris, ou maintenez le clic et glissez pour regarder.', en: 'Click the view to capture the mouse, or hold the button and drag to look.' })}</p>
         )}
@@ -713,13 +861,19 @@ export default function Percee() {
             <p className="gf-card-title">{t({ fr: 'Pause', en: 'Paused' })}</p>
             <p className="pc-menu-sub">{t({ fr: `Nuit ${night}/${NIGHTS} · aube dans ${fmtTime(hud.secs)}`, en: `Night ${night}/${NIGHTS} · dawn in ${fmtTime(hud.secs)}` })}</p>
             <div className="pc-menu-btns">
-              <button type="button" className="btn-primary" onClick={resume} disabled={cooldown} autoFocus><Play size={18} aria-hidden="true" /> {t({ fr: 'Reprendre', en: 'Resume' })}</button>
+              <button type="button" className="btn-primary" onClick={resume} disabled={cooldown || !!gfxLost} autoFocus><Play size={18} aria-hidden="true" /> {t({ fr: 'Reprendre', en: 'Resume' })}</button>
               <button type="button" className="gf-btn" onClick={() => { run.current.time += worldRef.current.time; run.current.tries += 1; startNight(night); }}><RotateCcw size={16} aria-hidden="true" /> {t({ fr: 'Recommencer cette nuit', en: 'Restart this night' })}</button>
               <button type="button" className={`gf-btn${confirm === 'new' ? ' is-on' : ''}`} onClick={() => (confirm === 'new' ? newRun() : setConfirm('new'))}>
                 {confirm === 'new' ? t({ fr: 'Confirmer : nouvelle partie', en: 'Confirm: new game' }) : t({ fr: 'Nouvelle partie', en: 'New game' })}</button>
               <button type="button" className={`gf-btn${confirm === 'quit' ? ' is-on' : ''}`} onClick={() => (confirm === 'quit' ? quit() : setConfirm('quit'))}><LogOut size={16} aria-hidden="true" />
                 {confirm === 'quit' ? t({ fr: 'Confirmer : quitter', en: 'Confirm: quit' }) : t({ fr: 'Quitter le jeu', en: 'Quit the game' })}</button>
             </div>
+            {gfxLost && (
+              <p className="pc-menu-sub pc-gfxnote" role="status">
+                {t({ fr: 'L’affichage 3D a été interrompu par la carte graphique. Il revient tout seul dans un instant ; la partie est en pause, rien n’est perdu.', en: 'The graphics card interrupted the 3D view. It comes back by itself in a moment; the game is paused and nothing is lost.' })}
+                {gfxLost === 'stuck' && <> <button type="button" className="gf-btn" onClick={() => setView('2d')}>{t({ fr: 'Continuer sur la carte 2D', en: 'Continue on the 2D map' })}</button></>}
+              </p>
+            )}
             <p className="pc-menu-sub" aria-live="polite">{confirm ? t({ fr: 'La partie en cours sera perdue. Appuyez encore une fois pour confirmer.', en: 'The current run will be lost. Press once more to confirm.' }) : t({ fr: 'Votre partie attend. Rien ne bouge pendant la pause.', en: 'Your run is waiting. Nothing moves while paused.' })}</p>
             {SettingsRow}
             <div className="gf-row">
