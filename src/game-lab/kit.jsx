@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLang, pick } from '../lib/lang';
 import { haptic } from '../lib/haptics';
-import { Brackets } from '../visuals/motionKit';
+import TvScreen from '../visuals/TvScreen';
 
 /*
- * Shared kit for the game lab. Every game is a self-contained React component that
- * renders inside <GameFrame> — the same panel as the story's diagrams (.viz), so a
- * game can be dropped into any story step as its visual.
+ * Shared kit for the game lab. A game renders inside <GameFrame> — the same panel as the
+ * story's diagrams (.viz), so it can be dropped into a story step as its visual.
+ * Deliberately does not import visuals/motionKit: that pulls in GSAP + ScrollTrigger, which the
+ * lab never uses. The corner brackets are the same markup as motionKit's <Brackets/>.
  */
 
 /** t({fr,en}) in the current language */
@@ -16,25 +16,7 @@ export function useT() {
   return useCallback((s) => pick(s, lang), [lang]);
 }
 
-export const rand = (n) => Math.floor(Math.random() * n);
-export const shuffle = (a) => {
-  const b = [...a];
-  for (let i = b.length - 1; i > 0; i--) { const j = rand(i + 1); [b[i], b[j]] = [b[j], b[i]]; }
-  return b;
-};
-export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export { haptic };
-
-/** setInterval that pauses when `on` is false */
-export function useTicker(fn, ms, on = true) {
-  const saved = useRef(fn);
-  saved.current = fn;
-  useEffect(() => {
-    if (!on) return undefined;
-    const id = setInterval(() => saved.current(), ms);
-    return () => clearInterval(id);
-  }, [ms, on]);
-}
 
 export function usePersist(key, initial) {
   const [v, setV] = useState(() => {
@@ -44,11 +26,24 @@ export function usePersist(key, initial) {
   return [v, setV];
 }
 
+/** corner brackets + TV glass (same markup as visuals/motionKit's Brackets) */
+function Brackets() {
+  return (
+    <>
+      <span className="brk brk-tl" aria-hidden="true" />
+      <span className="brk brk-tr" aria-hidden="true" />
+      <span className="brk brk-bl" aria-hidden="true" />
+      <span className="brk brk-br" aria-hidden="true" />
+      <TvScreen />
+    </>
+  );
+}
+
 /**
  * Panel around a game.
- * title / kicker are {fr,en}; status is any node shown on the right of the header (score, turn…).
+ * title / kicker are {fr,en}; status is any node shown on the right of the header.
  */
-export function GameFrame({ kicker, title, status, onRestart, children, className = '' }) {
+export function GameFrame({ kicker, title, status, children, className = '' }) {
   const t = useT();
   return (
     <section className={`viz game-frame ${className}`}>
@@ -58,15 +53,7 @@ export function GameFrame({ kicker, title, status, onRestart, children, classNam
           {kicker && <p className="gf-kicker">{t(kicker)}</p>}
           <h3 className="gf-title">{t(title)}</h3>
         </div>
-        <div className="gf-status">
-          {status}
-          {onRestart && (
-            <button type="button" className="gf-icon" onClick={() => { haptic('light'); onRestart(); }}
-              aria-label={t({ fr: 'Recommencer', en: 'Restart' })}>
-              <RotateCcw size={18} strokeWidth={1.75} aria-hidden="true" />
-            </button>
-          )}
-        </div>
+        <div className="gf-status">{status}</div>
       </header>
       {children}
     </section>
@@ -87,17 +74,6 @@ export function Card({ title, children, action, onAction, tone = '' }) {
   );
 }
 
-export function Meter({ label, value, max = 100, side = 'neutral' }) {
-  const pct = clamp((value / max) * 100, 0, 100);
-  return (
-    <div className={`gf-meter gf-meter-${side}`} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.round(value)} aria-label={label}>
-      <span className="gf-meter-label">{label}</span>
-      <span className="gf-meter-bar"><span className="gf-meter-fill" style={{ transform: `scaleX(${pct / 100})` }} /></span>
-      <span className="gf-meter-val">{Math.round(value)}</span>
-    </div>
-  );
-}
-
 /** End-of-game honesty: one source line + what the game simplified (research: 03-edu-design.md) */
 export function Debrief({ source, simplified }) {
   const t = useT();
@@ -112,9 +88,4 @@ export function Debrief({ source, simplified }) {
       )}
     </>
   );
-}
-
-/** live region for screen readers + a visual toast */
-export function Toast({ msg }) {
-  return <p className="gf-toast" aria-live="polite">{msg}</p>;
 }

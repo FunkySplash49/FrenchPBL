@@ -89,7 +89,7 @@ export default function Outro({ onActive, onTop }) {
         </div>
 
         <a className="btn-primary lab-cta" href="./game-lab.html">
-          {en ? 'Play the Alésia games →' : 'Jouer aux jeux d’Alésia →'}
+          {en ? 'Play La Percée →' : 'Jouer à La Percée →'}
         </a>
         <button type="button" className="btn-ghost" onClick={onTop}>
           <ArrowUp size={18} strokeWidth={1.75} aria-hidden="true" />
