@@ -810,6 +810,38 @@ html.zoom-lock .topbar, html.zoom-lock .rail { visibility: hidden; }
     inset 0 -1px 0 rgb(0 0 0 / 0.25),
     inset 0 0 24px rgb(255 220 180 / 0.04),
     0 20px 50px rgb(0 0 0 / 0.35);
+  position: relative; /* holds the hand-off layer below (no stacking context) */
+}
+
+/* Scroll hand-off (touch screens — crt-scenes): while the page scrolls, the compositor
+   moves the cards ahead of the canvas, so the shader's lens and glow would trail them.
+   For that time the same look is drawn here, on the cards, where it can't detach:
+   html.glass-css swaps in one frame (the shader drops its share in the same frame);
+   html.glass-css-out fades it out while the shader's lens fades back in.
+   z-index -1 with no stacking context on the card: the layer sits right above the
+   backdrop, under the card's own tint, rim and text. */
+html.has-glass.glass-css .beat-copy.panel::before,
+html.has-glass.glass-css .beat-visual .viz:not(.is-zoomed)::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  border-radius: inherit; pointer-events: none;
+}
+/* frosted, darkened, slightly richer picture — the shader's frost + haze */
+html.has-glass.glass-css .beat-copy.panel::before {
+  background: rgb(46 22 8 / 0.12);
+  -webkit-backdrop-filter: blur(7px) saturate(1.35) brightness(0.83);
+  backdrop-filter: blur(7px) saturate(1.35) brightness(0.83);
+  box-shadow: inset 1.5px 1.5px 0 rgb(255 232 200 / 0.16), inset -1px -1px 0 rgb(255 232 200 / 0.06);
+}
+/* lit boxes: the ember light bleeding out, the picture damped around them */
+html.has-glass.glass-css .beat-visual .viz:not(.is-zoomed)::before {
+  box-shadow:
+    0 0 26px 2px rgb(238 138 69 / 0.5),
+    0 0 110px 6px rgb(238 138 69 / 0.10),
+    0 0 200px 24px rgb(8 4 2 / 0.3);
+}
+html.has-glass.glass-css.glass-css-out .beat-copy.panel::before,
+html.has-glass.glass-css.glass-css-out .beat-visual .viz:not(.is-zoomed)::before {
+  opacity: 0; transition: opacity 220ms linear; /* FADE_MS in crt-scenes */
 }
 
 /* beat 5 — Rhine bridge elevation + real Channel inset (visuals/RhineBritain) */

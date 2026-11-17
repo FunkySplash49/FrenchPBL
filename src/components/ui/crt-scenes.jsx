@@ -22,6 +22,8 @@ import { useEffect, useRef, useState } from 'react';
  * ~2 MP (1.5 MP on touch hardware or a mobile-class GPU — see weakGpu). The size is fixed — never changed live, because a
  * re-allocated buffer makes the picture visibly snap. 30 fps on touch hardware,
  * paused when the tab is hidden, small height-only resizes ignored (mobile address bar).
+ * Touch screens: while the page scrolls, the glass and glow are handed to CSS on the cards
+ * themselves (they would trail the compositor-scrolled cards — see "Scroll hand-off").
  * Reduced motion: plain crossfade, no drift / grain / roll, and no redraw while idle.
  * No WebGL → the scene as a dimmed CSS background. Context lost (weak GPUs drop it under
  * memory pressure) → that same background while it is gone, then the whole renderer is
@@ -127,6 +129,8 @@ uniform int uBoxN;
 uniform float uBoxR;       // corner radius, buffer px
 uniform float uPx;         // buffer px per CSS px
 
+uniform float uLive;       // share of the glass / glow drawn here (the rest is CSS, see the hand-off)
+
 float sdBox(vec2 p, vec2 b, float r) {
   vec2 q = abs(p) - b + r;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
@@ -183,7 +187,7 @@ void main() {
   float glass = 0.0; float rim = 0.0; vec2 guv = uv; vec2 gdisp = vec2(0.0); float gx = 1.0;
   float dim = 0.0; vec3 glow = vec3(0.0);
   for (int i = 0; i < 8; i++) {
-    if (i >= uBoxN) break;
+    if (i >= uBoxN || uLive <= 0.0) break;
     vec4 r = uBox[i];
     vec2 b = r.zw * 0.5;
     vec2 q = px - (r.xy + b);
@@ -218,6 +222,7 @@ void main() {
       glow += uBoxCol[i] * (exp(-d / (26.0 * uPx)) * 0.6 + exp(-d / (120.0 * uPx)) * 0.2);
     }
   }
+  glass *= uLive; dim *= uLive; glow *= uLive;
 
   vec3 col = scene(uv, which);
   if (glass > 0.0) {
@@ -335,7 +340,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     const fallback = () => {
       stopFallback?.();
       canvas.classList.add('is-fallback');
-      document.documentElement.classList.remove('has-glass'); // CSS cards stay solid
+      document.documentElement.classList.remove('has-glass', 'glass-css', 'glass-css-out'); // CSS cards stay solid
       const paint = () => { canvas.style.backgroundImage = `url("${srcOf(scenes[want.current])}")`; };
       paint();
       const t = setInterval(paint, 400);
@@ -355,7 +360,8 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       return () => { stopFallback?.(); canvas.removeEventListener('webglcontextrestored', onRestored); };
     }
     // touch hardware (coarse primary pointer) or a mobile-class GPU
-    const coarse = window.matchMedia('(pointer: coarse)').matches || weakGpu(gl);
+    const coarse = window.matchMedia('(pointer: coarse)').matches || weakGpu(gl)
+      || (import.meta.env.DEV && new URLSearchParams(window.location.search).has('coarse')); // test hook
 
     const sh = (kind, src) => {
       const s = gl.createShader(kind); gl.shaderSource(s, src); gl.compileShader(s);
@@ -376,7 +382,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     try {
       bright = program(FRAG_BRIGHT, shared);
       blur = program(FRAG_BLUR, ['uTex', 'uDir', 'uInv']);
-      final = program(FRAG_FINAL, [...shared, 'uNoise', 'uBloom', 'uHalo', 'uSeed', 'uFade', 'uLine', 'uBox', 'uBoxKind', 'uBoxCol', 'uBoxN', 'uBoxR', 'uPx']);
+      final = program(FRAG_FINAL, [...shared, 'uNoise', 'uBloom', 'uHalo', 'uSeed', 'uFade', 'uLine', 'uBox', 'uBoxKind', 'uBoxCol', 'uBoxN', 'uBoxR', 'uPx', 'uLive']);
     } catch (err) {
       if (import.meta.env.DEV) console.warn('[crt] falling back:', err);
       fallback();
@@ -398,6 +404,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     // layout thrash — scrolling doesn't invalidate layout), redraw at once when they move
     const boxData = new Float32Array(32); const boxKind = new Float32Array(8); const boxCol = new Float32Array(24);
     let boxN = 0; let boxKey = ''; let boxR = 14;
+    let glass0 = null; let drawnAmt = 0; // DEV trace only
     // buffer px per on-screen CSS px — kept from the last rect read instead of measuring the
     // canvas again in every frame (a rect read inside rAF can force a synchronous layout)
     let pxPerCss = 1;
@@ -432,7 +439,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
         boxKind[n] = kind;
         boxCol.set(kind ? glowOf(el) : [0, 0, 0], n * 3);
         key += `${kind}:${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.width)},${Math.round(b.height)};`;
-        if (kind === 0 && n === 0) boxR = (parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14) * kx;
+        if (kind === 0 && n === 0) { boxR = (parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14) * kx; glass0 = el; }
         n += 1;
       };
       // story plunging into a topic page or hidden behind it: no glass / glow boxes
@@ -558,7 +565,45 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     let boxesStale = true; let boxesAt = -1e9;
     const storyEl = document.querySelector('.story');
     const markStale = () => { boxesStale = true; };
-    window.addEventListener('scroll', markStale, { passive: true, capture: true });
+
+    /* Scroll hand-off (touch screens). A phone scrolls the page on the compositor thread:
+       the cards move in the very frame the finger moves, while this canvas is drawn from
+       the main thread with the scroll position of a frame or more before (more during a
+       fling, and this canvas only redraws at 30 fps there). A lens drawn here therefore
+       trails its card by (speed × lag) — 40–150 px in a fling — and no rect-reading or
+       prediction can close that gap, because the main thread never sees the compositor's
+       newest offset. So while the page scrolls, the glass and the glow are drawn by CSS on
+       the cards themselves (html.glass-css, global.css), which moves with the compositor
+       and cannot detach; the shader keeps drawing the painting. The swap happens in one
+       frame (class + canvas commit together). ~150 ms after the last scroll the shader's
+       lens (fresh rects, page at rest) crossfades back in over FADE_MS while the CSS one
+       fades out. Desktop (fine pointer, not .is-touch) keeps the shader lens throughout. */
+    const root = document.documentElement;
+    const handoff = !!(glassSelector || glowSelector) && (coarse || root.classList.contains('is-touch'));
+    const SETTLE_MS = 150; const FADE_MS = 220;
+    let live = 1;           // share of glass / glow the shader draws (1 − the CSS share)
+    let cssMode = '';       // '' | 'on' | 'out'
+    let fadeFrom = 0;
+    const setCss = (m) => {
+      if (m === cssMode) return;
+      cssMode = m;
+      root.classList.toggle('glass-css', m !== '');
+      root.classList.toggle('glass-css-out', m === 'out');
+    };
+    let scrollAt = -1e9; let lastY = window.scrollY;
+    const onScroll = (e) => {
+      boxesStale = true;
+      if (e.target !== document && e.target !== root) return; // a box scrolling inside itself
+      const y = window.scrollY;
+      if (y === lastY) return;
+      lastY = y; scrollAt = performance.now();
+    };
+    // a finger dragging: hand off already (the compositor starts scrolling before the first
+    // scroll event reaches this thread, so waiting for it would show one trailing frame)
+    let touchAt = -1e9;
+    const onTouchMove = () => { touchAt = performance.now(); };
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
     window.addEventListener('resize', markStale, { passive: true });
     const layoutRO = new ResizeObserver(markStale);
     layoutRO.observe(document.body);
@@ -591,10 +636,42 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 
+    // DEV test hooks on canvas.__crt — trace = []: per frame, the first glass card's top on
+    // screen vs the top of the lens the canvas shows in that frame (CSS px), and how much of
+    // the lens is drawn (amt); drive(now): scroll from inside the frame; hold: 'css' | 'gl'.
+    // ?coarse forces the touch budget. All stripped from the production build.
+    let drawnTop = NaN; let drawnEl = null; let traceEntry = null;
     const frame = (now) => {
       raf = requestAnimationFrame(frame);
+      if (import.meta.env.DEV) {
+        if (traceEntry) {
+          const top = traceEntry.tops.get(drawnEl);
+          traceEntry.off = top == null || Number.isNaN(drawnTop) ? null : top - drawnTop;
+          traceEntry.amt = drawnAmt; delete traceEntry.tops; traceEntry = null;
+        }
+        canvas.__crt?.drive?.(now); // test: scroll here, i.e. before this frame's work
+        if (canvas.__crt?.trace && glassSelector) {
+          const tops = new Map();
+          document.querySelectorAll(glassSelector).forEach((el) => tops.set(el, el.getBoundingClientRect().top));
+          traceEntry = { now, y: window.scrollY, tops }; canvas.__crt.trace.push(traceEntry);
+        }
+      }
       const gap = now - last;
-      if (coarse && gap < 30) return;
+      // scroll hand-off (see above): the frame that swaps to CSS, and the crossfade back,
+      // are drawn at once — never held back by the 30 fps pacing
+      let urgent = false;
+      if (handoff) {
+        const hold = import.meta.env.DEV ? canvas.__crt?.hold : null; // test: 'css' | 'gl'
+        if (hold === 'css' || (hold !== 'gl' && now - Math.max(scrollAt, touchAt) < SETTLE_MS)) {
+          if (live > 0) { live = 0; dirty = true; urgent = true; }
+          setCss('on');
+        } else if (live < 1) {
+          if (cssMode === 'on') { setCss('out'); fadeFrom = now; boxesStale = true; }
+          live = Math.min(1, (now - fadeFrom) / FADE_MS); dirty = true; urgent = true;
+          if (live >= 1) setCss('');
+        }
+      }
+      if (coarse && gap < 30 && !urgent) return;
       last = now;
       const dt = Math.min(0.05, gap / 1000);
       t += dt;
@@ -623,8 +700,9 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       }
       if (tex.has(a) && fade < 1) { fade = Math.min(1, fade + dt / 0.7); dirty = true; }
       // card / box rects: re-read only when they can have moved — scroll, resize, layout
-      // change, or while the topic dive transforms the story (and every 0.5 s as a safety net)
-      if (boxesStale || storyEl?.style.transform || now - boxesAt > 500) {
+      // change, or while the topic dive transforms the story (and every 0.5 s as a safety net);
+      // not while CSS carries the glass (live = 0) — read again when the crossfade back starts
+      if (live > 0 && (boxesStale || storyEl?.style.transform || now - boxesAt > 500)) {
         boxesStale = false; boxesAt = now;
         if (readBoxes()) dirty = true; // moved: draw now
       }
@@ -676,7 +754,9 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       gl.uniform1i(final.u.uBoxN, boxN);
       gl.uniform1f(final.u.uBoxR, boxR);
       gl.uniform1f(final.u.uPx, pxPerCss);
+      gl.uniform1f(final.u.uLive, live);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (import.meta.env.DEV) { drawnTop = boxN && boxKind[0] === 0 ? boxData[1] / pxPerCss : NaN; drawnEl = glass0; drawnAmt = live; }
       if (waitingForPicture) { waitingForPicture = false; leaveFallback(); }
     };
     raf = requestAnimationFrame(frame);
@@ -696,8 +776,9 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
 
     return () => {
       dead = true;
-      document.documentElement.classList.remove('has-glass');
-      window.removeEventListener('scroll', markStale, { capture: true });
+      document.documentElement.classList.remove('has-glass', 'glass-css', 'glass-css-out');
+      window.removeEventListener('scroll', onScroll, { capture: true });
+      window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('resize', markStale);
       layoutRO.disconnect();
       cancelAnimationFrame(raf); ro.disconnect(); stopFallback?.();
