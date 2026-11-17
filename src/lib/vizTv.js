@@ -53,21 +53,77 @@ const MAP_Y = svgUrl(
   + '<rect width="64" height="64" fill="url(#y)"/><rect width="64" height="64" fill="url(#n)"/>',
 );
 
+/*
+ * The same map, baked once into a small bitmap (PERFORMANCE — same picture).
+ * An <feImage> pointing at an SVG document is re-rasterised every time the filter runs, at
+ * the filter's full device size. Chrome re-runs the filter on every frame in which anything
+ * near the diagram repaints, so on a 4K screen (page zoom 2) this one filter dropped the whole
+ * page to ~8 fps (measured: 117 ms frames → 16.7 ms with the bitmap; 33 → 16.7 ms at 1080p).
+ * A bitmap <feImage> is decoded once and only scaled. Pixel for pixel it is the composite the
+ * old chain produced (MAP_X red + MAP_Y green − 0.5): the two gradients are evaluated at
+ * each texel centre exactly as the SVG gradients are (linear between the 17 stops), so the
+ * bilinear upscale reproduces the same piecewise-linear surface. Measured against the old
+ * chain: no bias, mean 0.47/255, max 3/255 (≤ 0.3 CSS px of displacement on the largest
+ * box) — the old SVG gradients are dithered by the rasteriser, which is this ±1 noise.
+ */
+const lerpStops = (f) => {
+  const v = STOPS.map(f);
+  return (t) => {
+    const s = t * 16; const i = Math.min(15, Math.floor(s)); const k = s - i;
+    return v[i] * (1 - k) + v[i + 1] * k;
+  };
+};
+function bakedMap(n = 256) {
+  try {
+    const c = document.createElement('canvas');
+    c.width = n; c.height = n;
+    const ctx = c.getContext('2d');
+    if (!ctx) return null;
+    const ramp = lerpStops((t) => byte(0.5 + 0.5 * bulge(t)));   // gradient colour (0–255)
+    const fade = lerpStops((t) => +(1 - lens(t)).toFixed(3));     // neutral overlay opacity
+    const at = Array.from({ length: n }, (_, i) => (i + 0.5) / n); // texel centres
+    const r = at.map(ramp); const a = at.map(fade);
+    const img = ctx.createImageData(n, n);
+    const d = img.data;
+    for (let y = 0; y < n; y += 1) {
+      for (let x = 0; x < n; x += 1) {
+        const o = (y * n + x) * 4;
+        // gradient under its neutral (128) overlay, then + the other map's neutral 128 − 0.5;
+        // the extra +0.5 matches how the old chain rounded (measured mean bias: 0.00)
+        d[o] = Math.round(r[x] * (1 - a[y]) + 128 * a[y] + 1);
+        d[o + 1] = Math.round(r[y] * (1 - a[x]) + 128 * a[x] + 1);
+        d[o + 2] = 0;
+        d[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    const url = c.toDataURL('image/png');
+    return url.startsWith('data:image/png') ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 // displacement map in bounding-box units; outside the box (focus outlines) it is neutral
-const MAP = `
+const mapChain = (baked) => (baked
+  ? `
+  <feFlood flood-color="rgb(128,128,0)" result="neutral"/>
+  <feImage href="${baked}" x="0" y="0" width="1" height="1" preserveAspectRatio="none" result="m"/>`
+  : `
   <feFlood flood-color="rgb(128,128,0)" result="neutral"/>
   <feImage href="${MAP_X}" x="0" y="0" width="1" height="1" preserveAspectRatio="none" result="mx"/>
   <feImage href="${MAP_Y}" x="0" y="0" width="1" height="1" preserveAspectRatio="none" result="my"/>
-  <feComposite in="mx" in2="my" operator="arithmetic" k1="0" k2="1" k3="1" k4="-0.5" result="m"/>
+  <feComposite in="mx" in2="my" operator="arithmetic" k1="0" k2="1" k3="1" k4="-0.5" result="m"/>`)
+  + `
   <feMerge result="map"><feMergeNode in="neutral"/><feMergeNode in="m"/></feMerge>
   <feDisplacementMap in="SourceGraphic" in2="map" scale="0.022" xChannelSelector="R" yChannelSelector="G" result="warp"/>`;
 
 // The glow and colour fringe are CSS drop-shadows chained after this filter (viz-tv.css):
 // an in-filter bloom (threshold + blur + composite) measured ~2x frame time in Chrome.
 // colours below are the token --ember-400 (0.93 0.54 0.27)
-const DEFS = `
+const defs = (baked) => `
 <filter id="tv-crt" x="-0.04" y="-0.04" width="1.08" height="1.08" primitiveUnits="objectBoundingBox" color-interpolation-filters="sRGB">
-  ${MAP}
+  ${mapChain(baked)}
 </filter>
 <filter id="tv-shift" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">
   <feOffset in="SourceGraphic" dx="3" dy="0" result="o"/>
@@ -102,6 +158,6 @@ export function installVizTv() {
   svg.setAttribute('width', '0');
   svg.setAttribute('height', '0');
   svg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
-  svg.innerHTML = `<defs>${DEFS}</defs>`;
+  svg.innerHTML = `<defs>${defs(svgfx ? bakedMap() : null)}</defs>`;
   document.body.prepend(svg);
 }
