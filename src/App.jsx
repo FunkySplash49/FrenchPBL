@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, memo, useCallback, useEffect, useRef, useState } from 'react';
 import { LangProvider } from './lib/lang';
 import { BEATS } from './data/beats';
 import { ScrollTrigger, prefersReduced } from './lib/motion';
@@ -19,6 +19,15 @@ import { loadTopicView } from './lib/topic';
 // browser is idle after first paint, and again on the first hover / touch of a key word,
 // so the dive never waits — but the first load of the story is lighter.
 const TopicView = lazy(loadTopicView);
+
+// The story's sections don't depend on the active step: memoised, so a step change while
+// scrolling (each one passed in a fast fling) re-renders only the backdrop and the rail —
+// not all 14 sections and their diagrams (15–27 ms per step change in a dev build on a
+// laptop before this and lib/lang's stable context value; 0 ms after).
+const StoryHero = memo(Hero);
+const StoryBeat = memo(Beat);
+const StoryOutro = memo(Outro);
+const StoryTopBar = memo(TopBar);
 
 const LAST = 13; // 0 = title, 1–12 = beats, 13 = sources
 
@@ -57,6 +66,8 @@ export default function App() {
     el.focus({ preventScroll: true });
     setActive(target);
   }, []);
+  const toStart = useCallback(() => goTo(0), [goTo]);
+  const toFirst = useCallback(() => goTo(1), [goTo]);
 
   // Presenter keys (brief: "one scroll or key-press (→ / Space)")
   useEffect(() => {
@@ -121,12 +132,14 @@ export default function App() {
 
   // Off-screen steps: pause their looping CSS animations (flows, flickers, pulses).
   // Only what you can't see stops, so nothing looks different — it just stops costing.
+  // Half a screen of margin: on a phone the compositor scrolls a frame or two ahead of this
+  // observer, so a fling can't bring a step on screen before it is marked as on screen.
   useEffect(() => {
     const root = storyRef.current;
     if (!root || !('IntersectionObserver' in window)) return undefined;
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => e.target.classList.toggle('is-offscreen', !e.isIntersecting));
-    }, { rootMargin: '25% 0px' });
+    }, { rootMargin: '50% 0px' });
     root.querySelectorAll(':scope > section').forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, []);
@@ -136,11 +149,11 @@ export default function App() {
     <LangProvider>
       <a href="#beat-1" className="skip-link">Aller au récit</a>
       <Backdrop step={active} topic={bgTopic} switchMs={slowSwitch ? 1250 : 1000} />
-      <TopBar onHome={() => goTo(0)} />
+      <StoryTopBar onHome={toStart} />
       <main className="story" ref={storyRef}>
-        <Hero onActive={onActive} onStart={() => goTo(1)} />
-        {BEATS.map((b) => <Beat key={b.n} beat={b} onActive={onActive} />)}
-        <Outro onActive={onActive} onTop={() => goTo(0)} />
+        <StoryHero onActive={onActive} onStart={toFirst} />
+        {BEATS.map((b) => <StoryBeat key={b.n} beat={b} onActive={onActive} />)}
+        <StoryOutro onActive={onActive} onTop={toStart} />
       </main>
       <BeatRail active={active} onJump={goTo} />
       <Suspense fallback={null}><AnimatePresence>{topic && <TopicView key={topic} id={topic} />}</AnimatePresence></Suspense>

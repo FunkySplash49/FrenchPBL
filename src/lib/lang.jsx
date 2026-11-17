@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 /**
  * Three language modes:
@@ -27,9 +27,12 @@ export function LangProvider({ children }) {
     try { localStorage.setItem(KEY, lang); } catch { /* private mode: fine */ }
   }, [lang]);
 
-  const cycle = () => setLang((l) => ORDER[(ORDER.indexOf(l) + 1) % ORDER.length]);
+  const cycle = useCallback(() => setLang((l) => ORDER[(ORDER.indexOf(l) + 1) % ORDER.length]), []);
+  // same object until the language changes: a new one on every App render (each step
+  // change while scrolling) re-rendered every piece of text on the page
+  const value = useMemo(() => ({ lang, cycle }), [lang, cycle]);
 
-  return <LangContext.Provider value={{ lang, cycle }}>{children}</LangContext.Provider>;
+  return <LangContext.Provider value={value}>{children}</LangContext.Provider>;
 }
 
 export const useLang = () => useContext(LangContext);
