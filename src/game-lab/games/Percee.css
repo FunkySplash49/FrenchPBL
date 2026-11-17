@@ -96,7 +96,7 @@
 
 /* HUD */
 .pc-hud {
-  position: absolute; inset: 0; pointer-events: none; display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) minmax(0, 15rem); align-items: start; gap: var(--space-3);
+  position: absolute; inset: 0; pointer-events: none; display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) minmax(0, 15rem); align-items: start; align-content: start; gap: var(--space-3);
   padding: max(var(--space-3), env(safe-area-inset-top)) max(var(--space-3), env(safe-area-inset-right)) 0 max(var(--space-3), env(safe-area-inset-left));
   font-size: var(--text-sm); text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }

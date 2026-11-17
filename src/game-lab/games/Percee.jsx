@@ -117,6 +117,7 @@ function Board({ board, seed, ini, highlight, onImport, t }) {
           {msg === 'ok' && t({ fr: 'Score ajouté au classement.', en: 'Score added to the board.' })}
           {msg === 'format' && t({ fr: 'Ce code n’a pas la bonne forme (12 caractères).', en: 'That code does not have the right shape (12 characters).' })}
           {msg === 'check' && t({ fr: 'Code refusé : une lettre est sans doute mal recopiée.', en: 'Code rejected: a character was probably mistyped.' })}
+          {msg === 'dup' && t({ fr: 'Ce score est déjà au classement.', en: 'That score is already on the board.' })}
           {msg === 'seed' && t({ fr: 'Ce code vient d’une autre carte que celles affichées ici.', en: 'That code is for a different map than the ones shown here.' })}
         </p>
       </form>
@@ -143,6 +144,10 @@ export default function Percee() {
   const dirty = useRef(true);
   const toastTimer = useRef(0);
   const coolTimer = useRef(0);
+  const noteTimer = useRef(0);
+  const lastKind = useRef(null);         // the pointer of the event being handled right now (state lags one render)
+  const fullAt = useRef(-1e9);          // last full-screen request or change (a blur right after it is ignored)
+  const coolUntil = useRef(0);          // Resume is refused until then (set synchronously: a stray Esc keydown can follow the unlock in the same tick)
 
   const [phase, setPhaseS] = useState('menu');   // menu | play | between | caught | over
   const [mode, setModeS] = useState('ready');    // ready | run | paused   (only meaningful in 'play')
@@ -178,13 +183,13 @@ export default function Percee() {
   // finger or mouse? Decided by the last pointer used, from the very first tap on the menu
   // (a touch monitor with a mouse plugged in switches back and forth freely).
   useEffect(() => {
-    const onDown = (e) => setKind(e.pointerType === 'mouse' ? 'mouse' : 'touch');
+    const onDown = (e) => { const k = e.pointerType === 'mouse' ? 'mouse' : 'touch'; lastKind.current = k; setKind(k); };
     window.addEventListener('pointerdown', onDown, true);
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, []);
   const audio = () => { if (!audioRef.current) { audioRef.current = makeAudio(); audioRef.current.setMuted(live.current.muted); } return audioRef.current; };
   useEffect(() => { audioRef.current?.setMuted(muted); }, [muted]);
-  useEffect(() => () => { audioRef.current?.close(); clearTimeout(toastTimer.current); clearTimeout(coolTimer.current); }, []);
+  useEffect(() => () => { audioRef.current?.close(); clearTimeout(toastTimer.current); clearTimeout(coolTimer.current); clearTimeout(noteTimer.current); }, []);
 
   const say = useCallback((msg, ms = 6500) => {
     setToast(msg); clearTimeout(toastTimer.current);
@@ -196,8 +201,9 @@ export default function Percee() {
      the player left full screen in between). iPhone Safari has no such API: there the stage simply
      fills the viewport, and the installed web app is already full screen. */
   const goFull = () => {
-    if (live.current.kind !== 'touch' || document.fullscreenElement || document.webkitFullscreenElement) return;
+    if ((lastKind.current || live.current.kind) !== 'touch' || document.fullscreenElement || document.webkitFullscreenElement) return;
     const el = document.documentElement;
+    fullAt.current = performance.now();
     try {
       const p = el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : el.webkitRequestFullscreen?.();
       p?.catch?.(() => {});
@@ -250,12 +256,12 @@ export default function Percee() {
     inp?.release(); audioRef.current?.suspend();
     if (why === 'lock') {
       // Chrome refuses a new lock for 1.25 s after Esc: keep "Resume" disabled a little longer than that
-      setCooldown(true); clearTimeout(coolTimer.current);
+      setCooldown(true); clearTimeout(coolTimer.current); coolUntil.current = performance.now() + 1300;
       coolTimer.current = setTimeout(() => setCooldown(false), 1300);
     } else inp?.exitLock();
   };
   const resume = (e) => {
-    if (phaseRef.current !== 'play' || modeRef.current !== 'paused' || live.current.cooldown) return;
+    if (phaseRef.current !== 'play' || modeRef.current !== 'paused' || performance.now() < coolUntil.current) return;
     audioRef.current?.resume();
     setMode('run');
     const mouse = e?.nativeEvent?.pointerType ? e.nativeEvent.pointerType === 'mouse' : live.current.kind === 'mouse';
@@ -329,7 +335,8 @@ export default function Percee() {
       active: () => modeRef.current === 'run' && phaseRef.current === 'play',
       onKind: (k) => setKind(k === 'pad' ? 'mouse' : k),
       onLock: (locked, expected) => { if (locked) setLockNote(false); else if (!expected) fns.current.pause('lock'); },
-      onLockError: () => setLockNote(true),
+      // the note sits over the view: show it for a few seconds only (drag-to-look keeps working meanwhile)
+      onLockError: () => { setLockNote(true); clearTimeout(noteTimer.current); noteTimer.current = setTimeout(() => setLockNote(false), 6000); },
       onThrow: () => fns.current.doThrow(),
       onEscape: () => {
         if (phaseRef.current !== 'play') return false;
@@ -371,7 +378,8 @@ export default function Percee() {
         if (fp) fp.load(w, { horror: live.current.horror });
         mini = mmRef.current ? createMinimap(mmRef.current, w, colors) : null;
         const g = nextGap(w);
-        inp.reset(Math.atan2(g.y - w.player.y, g.x - w.player.x));
+        // a fresh night faces the next gap; switching 3D / 2D mid-night keeps the rider's heading
+        inp.reset(w.time > 0 ? w.player.face : Math.atan2(g.y - w.player.y, g.x - w.player.x));
         w.player.face = inp.state.yaw;
         nextHorn = 10; hudT = 0;
       }
@@ -454,10 +462,14 @@ export default function Percee() {
     raf = requestAnimationFrame(frame);
 
     const onHide = () => { if (document.hidden) fns.current.pause('blur'); };
-    const onBlur = () => fns.current.pause('blur');
+    // entering or leaving full screen can blur the window for a moment on some browsers: not a reason to pause
+    const onFull = () => { fullAt.current = performance.now(); };
+    const onBlur = () => { if (performance.now() - fullAt.current > 500) fns.current.pause('blur'); };
     const onLost = (e) => { e.preventDefault(); fns.current.pause('blur'); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('blur', onBlur);
+    document.addEventListener('fullscreenchange', onFull);
+    document.addEventListener('webkitfullscreenchange', onFull);
     canvas.addEventListener('webglcontextlost', onLost);
 
     if (import.meta.env.DEV) {
@@ -500,6 +512,8 @@ export default function Percee() {
       cancelAnimationFrame(raf); ro.disconnect();
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('blur', onBlur);
+      document.removeEventListener('fullscreenchange', onFull);
+      document.removeEventListener('webkitfullscreenchange', onFull);
       canvas.removeEventListener('webglcontextlost', onLost);
       inp.dispose(); inputRef.current = null;
       fp?.dispose(); fpRef.current = null;
@@ -528,6 +542,10 @@ export default function Percee() {
     if (!r.ok) return r.why;
     const target = matchSeed(r.tag, [seed, todaySeed()]);
     if (!target) return 'seed';
+    // the same score already on the board (your own run, or a code pasted twice): do not list it again
+    const e = r.entry;
+    const same = (x) => x.id === e.id || (x.ini === e.ini && x.nights === e.nights && (x.riders || 0) === e.riders && Math.round(x.time) === e.time && golds(x) === golds(e));
+    if ((board[target] || []).some(same)) return 'dup';
     const b = addEntry(board, target, r.entry);
     setBoard(b); saveBoard(b);
     return 'ok';
@@ -542,6 +560,7 @@ export default function Percee() {
     } catch { /* cancelled */ }
   };
   const toggleFull = () => {
+    fullAt.current = performance.now();
     try {
       if (document.fullscreenElement) document.exitFullscreen()?.catch?.(() => {});
       else if (document.webkitFullscreenElement) document.webkitExitFullscreen?.();

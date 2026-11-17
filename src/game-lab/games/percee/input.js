@@ -46,24 +46,29 @@ export function createInput(o) {
 
   /* ── pointer lock ── */
   const lockFail = () => { if (document.pointerLockElement === canvas) return; s.lockFailed = true; o.onLockError?.(); };
+  // one request at a time: a second call while the first is pending is refused by some browsers
+  let pending = false;
+  const settle = () => { pending = false; };
   function requestLock() {
-    if (!lockable || o.mode() !== '3d') return false;
+    if (!lockable || o.mode() !== '3d' || pending || document.pointerLockElement === canvas) return false;
+    pending = true;
     try {
       const p = canvas.requestPointerLock({ unadjustedMovement: true });
-      if (p && p.catch) {
-        p.catch((err) => {
+      if (p && p.then) {
+        p.then(settle, (err) => {
           if (err && (err.name === 'NotSupportedError' || err.name === 'InvalidStateError')) {
-            try { const p2 = canvas.requestPointerLock(); if (p2 && p2.catch) p2.catch(lockFail); } catch { lockFail(); }
-          } else lockFail();
+            try { const p2 = canvas.requestPointerLock(); if (p2 && p2.then) p2.then(settle, () => { settle(); lockFail(); }); else settle(); } catch { settle(); lockFail(); }
+          } else { settle(); lockFail(); }
         });
-      }
+      } else settle(); // older Safari: no promise, so nothing to wait on (the result comes as pointerlockchange / pointerlockerror)
       return true;
-    } catch { lockFail(); return false; }
+    } catch { settle(); lockFail(); return false; }
   }
   function exitLock() {
     if (document.pointerLockElement === canvas) { expectUnlock = true; try { document.exitPointerLock(); } catch { /* ignore */ } }
   }
   const onLockChange = () => {
+    pending = false;
     const now = document.pointerLockElement === canvas;
     if (now === s.locked) return;
     s.locked = now;
@@ -71,7 +76,14 @@ export function createInput(o) {
     const expected = expectUnlock; expectUnlock = false;
     o.onLock?.(now, expected);
   };
-  const onLockErr = () => lockFail();
+  const onLockErr = () => { pending = false; lockFail(); };
+  // Safari can refuse a lock asked from pointerdown (not a "user activation" there): ask again on click
+  const onClick = (e) => {
+    if (e.pointerType && e.pointerType !== 'mouse') return;
+    if (s.locked || e.button !== 0 || !o.active() || o.mode() !== '3d') return;
+    if (e.target.closest && e.target.closest(UI)) return;
+    requestLock();
+  };
   const onMouseMove = (e) => {
     if (!s.locked || !o.active()) return;
     const mx = e.movementX || 0; const my = e.movementY || 0;
@@ -160,6 +172,7 @@ export function createInput(o) {
 
   window.addEventListener('pointerdown', onAnyDown, true);
   surface.addEventListener('pointerdown', onDown);
+  surface.addEventListener('click', onClick);
   surface.addEventListener('pointermove', onMove);
   surface.addEventListener('pointerup', onUp);
   surface.addEventListener('pointercancel', onUp);
@@ -218,6 +231,7 @@ export function createInput(o) {
       exitLock();
       window.removeEventListener('pointerdown', onAnyDown, true);
       surface.removeEventListener('pointerdown', onDown);
+      surface.removeEventListener('click', onClick);
       surface.removeEventListener('pointermove', onMove);
       surface.removeEventListener('pointerup', onUp);
       surface.removeEventListener('pointercancel', onUp);
