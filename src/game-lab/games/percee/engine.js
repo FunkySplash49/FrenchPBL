@@ -343,6 +343,23 @@ function alert(w, x, y, radius, secs) {
  * Returns the (reused) event list: { type: 'trap' | 'rally' | 'thunder' | 'sighted' | 'suspect' | 'lost' |
  *   'calm' | 'stone' | 'winded' | 'caught' | 'escaped', … }
  */
+/** keep a rallied rider out of huts and tree trunks (they follow you, so they go round, not through) */
+function pushOut(w, r, extra) {
+  for (let i = 0; i < w.huts.length; i++) {
+    const h = w.huts[i]; const pad = h.r + extra; const dx = r.x - h.x; const dy = r.y - h.y;
+    if (dx > pad || dx < -pad || dy > pad || dy < -pad) continue;
+    const d = Math.hypot(dx, dy);
+    if (d < pad && d > 0.001) { r.x = h.x + (dx / d) * pad; r.y = h.y + (dy / d) * pad; }
+  }
+  const tp = TUNE.treePad;
+  for (let i = 0; i < w.trees.length; i++) {
+    const t = w.trees[i]; const dx = r.x - t.x; const dy = r.y - t.y;
+    if (dx > tp || dx < -tp || dy > tp || dy < -tp) continue;
+    const d = Math.hypot(dx, dy);
+    if (d < tp && d > 0.001) { r.x = t.x + (dx / d) * tp; r.y = t.y + (dy / d) * tp; }
+  }
+}
+
 export function step(w, input, dt) {
   const ev = w.ev; ev.length = 0;
   if (w.state !== 'play') return ev;
@@ -419,10 +436,23 @@ export function step(w, input, dt) {
       }
     }
     for (let i = 0; i < w.huts.length; i++) {
-      const h = w.huts[i]; const dx = nx - h.x; const dy = ny - h.y; const pad = h.r + 5;
+      const h = w.huts[i]; let dx = nx - h.x; let dy = ny - h.y; const pad = h.r + 5;
       if (dx > pad || dx < -pad || dy > pad || dy < -pad) continue;
-      const d = Math.hypot(dx, dy);
-      if (d < pad && d > 0.001) { nx = h.x + (dx / d) * pad; ny = h.y + (dy / d) * pad; }
+      let d = Math.hypot(dx, dy);
+      if (d < pad && d > 0.001) {
+        // slide round the hut: keep the sideways part of the move, and when riding straight at it,
+        // turn most of the blocked push into sideways motion so a head-on contact never stops you dead
+        const ux = dx / d; const uy = dy / d; const tx = -uy; const ty = ux;
+        const into = -(mx * ux + my * uy); const side = mx * tx + my * ty;
+        if (into > 0) {
+          const dir = Math.abs(side) > 0.02 * into ? Math.sign(side) : ((i & 1) ? 1 : -1);
+          const slide = dir * Math.max(Math.abs(side), into * 0.7);
+          nx = h.x + ux * pad + tx * slide; ny = h.y + uy * pad + ty * slide;
+          dx = nx - h.x; dy = ny - h.y; d = Math.hypot(dx, dy) || 1;
+        }
+        nx = h.x + (dx / d) * pad; ny = h.y + (dy / d) * pad;
+        if (wallCheck(w, p.x, p.y, nx, ny)) { nx = p.x; ny = p.y; }
+      }
     }
     p.x = nx; p.y = ny;
   }
@@ -454,6 +484,7 @@ export function step(w, input, dt) {
       const sp = Math.min(d * 2.2, 230) * dt;
       r.x += (dx / d) * sp; r.y += (dy / d) * sp;
       r.face += clamp(angDiff(Math.atan2(dy, dx), r.face), -5 * dt, 5 * dt);
+      pushOut(w, r, 4);
     }
   }
 

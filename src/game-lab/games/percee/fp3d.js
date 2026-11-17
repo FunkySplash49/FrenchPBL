@@ -417,7 +417,16 @@ export function createFP(canvas) {
 
     // torches and fires: glow sprites instead of real lights
     const fires = [];
-    for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2 + 0.6; fires.push([w.cx + Math.cos(a) * 66, w.cy + Math.sin(a) * 40]); }
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.6; let x = w.cx + Math.cos(a) * 66; let y = w.cy + Math.sin(a) * 40;
+      // a fire under a thatched eave would glow straight through the roof: keep it clear of every roof
+      // (roof radius is 2.1 / S × scale world units; the glow sprite reaches about 22 units around the fire)
+      for (const h of w.huts) {
+        const clear = (2.1 / S) * h.s + 24; const dx = x - h.x; const dy = y - h.y; const d = Math.hypot(dx, dy);
+        if (d < clear) { const k = d > 0.01 ? clear / d : 0; x = d > 0.01 ? h.x + dx * k : h.x + clear; y = d > 0.01 ? h.y + dy * k : y; }
+      }
+      fires.push([x, y]);
+    }
     const nGlow = nW + fires.length;
     const gp = new Float32Array(nGlow * 3); const gc = new Float32Array(nGlow * 3);
     for (let i = 0; i < nGlow; i++) { gc[i * 3] = 1; gc[i * 3 + 1] = 0.62; gc[i * 3 + 2] = 0.28; }
