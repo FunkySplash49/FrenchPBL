@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /*
  * CrtScenes — full-screen story scenes (19th-century history paintings) seen through a
@@ -19,12 +19,29 @@ import { useEffect, useRef } from 'react';
  * chains. A scene is never shown before its texture is ready (no black frames).
  *
  * Budget: the drawing buffer is capped (maxPixels) and CSS-upscaled — a 4K panel draws
- * ~2 MP (1.5 MP on touch hardware). The size is fixed — never changed live, because a
+ * ~2 MP (1.5 MP on touch hardware or a mobile-class GPU — see weakGpu). The size is fixed — never changed live, because a
  * re-allocated buffer makes the picture visibly snap. 30 fps on touch hardware,
  * paused when the tab is hidden, small height-only resizes ignored (mobile address bar).
  * Reduced motion: plain crossfade, no drift / grain / roll, and no redraw while idle.
- * No WebGL (or context lost) → the scene as a dimmed CSS background.
+ * No WebGL → the scene as a dimmed CSS background. Context lost (weak GPUs drop it under
+ * memory pressure) → that same background while it is gone, then the whole renderer is
+ * rebuilt when the browser restores the context (at most RESTORES times per page, so a
+ * driver that keeps losing it can't make the screen flash in a loop).
  */
+const RESTORES = 3;
+let restoresLeft = RESTORES;
+
+/* Mobile / TV GPUs (Mali, Adreno, PowerVR … the ARM chips in Android and Tizen panels) and
+   software renderers: same light budget as touch hardware (1.5 MP buffer, 30 fps, 4 scenes
+   kept), even when the browser reports a fine pointer (a touch screen with a mouse). */
+const WEAK_GPU = /mali|adreno|powervr|swiftshader|llvmpipe|software|vivante|videocore|mesa offscreen/i;
+function weakGpu(gl) {
+  try {
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    return WEAK_GPU.test(String(name || ''));
+  } catch { return false; }
+}
 const VERT = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
 
 const COMMON = `
@@ -306,24 +323,39 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
   // switch duration is read live (topic pages switch at 0.8× speed) — no WebGL rebuild
   const switchRef = useRef(switchMs);
   switchRef.current = switchMs;
+  // bumped when a lost WebGL context comes back: the effect below rebuilds everything
+  const [generation, setGeneration] = useState(0);
   want.current = Math.max(0, Math.min(scenes.length - 1, index));
 
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return undefined;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const coarse = window.matchMedia('(pointer: coarse)').matches;
     let stopFallback = null;
     const fallback = () => {
+      stopFallback?.();
       canvas.classList.add('is-fallback');
       document.documentElement.classList.remove('has-glass'); // CSS cards stay solid
       const paint = () => { canvas.style.backgroundImage = `url("${srcOf(scenes[want.current])}")`; };
       paint();
       const t = setInterval(paint, 400);
-      stopFallback = () => clearInterval(t);
+      stopFallback = () => { clearInterval(t); stopFallback = null; };
     };
+    // the browser gives a lost context back: rebuild (the effect re-runs with a new generation)
+    let lostHere = false;
+    const onRestored = () => {
+      if (restoresLeft <= 0) return; // keeps losing it: stay on the still picture
+      restoresLeft -= 1;
+      setGeneration((g) => g + 1);
+    };
+    canvas.addEventListener('webglcontextrestored', onRestored);
     const gl = canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'high-performance' });
-    if (!gl || gl.isContextLost()) { fallback(); return () => stopFallback?.(); }
+    if (!gl || gl.isContextLost()) {
+      fallback();
+      return () => { stopFallback?.(); canvas.removeEventListener('webglcontextrestored', onRestored); };
+    }
+    // touch hardware (coarse primary pointer) or a mobile-class GPU
+    const coarse = window.matchMedia('(pointer: coarse)').matches || weakGpu(gl);
 
     const sh = (kind, src) => {
       const s = gl.createShader(kind); gl.shaderSource(s, src); gl.compileShader(s);
@@ -348,16 +380,27 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     } catch (err) {
       if (import.meta.env.DEV) console.warn('[crt] falling back:', err);
       fallback();
-      return () => stopFallback?.();
+      return () => { stopFallback?.(); canvas.removeEventListener('webglcontextrestored', onRestored); };
     }
-    canvas.classList.remove('is-fallback');
-    // the CSS side of the glass cards switches on only when the shader draws them
-    if (glassSelector) document.documentElement.classList.add('has-glass');
+    // back from a lost context: the still picture stays up until the first real frame is
+    // drawn (no dark frame in between), and the picture comes back at once, not faded in
+    const restoring = canvas.classList.contains('is-fallback');
+    const leaveFallback = () => {
+      stopFallback?.();
+      canvas.classList.remove('is-fallback');
+      canvas.style.backgroundImage = '';
+      // the CSS side of the glass cards switches on only when the shader draws them
+      if (glassSelector) document.documentElement.classList.add('has-glass');
+    };
+    if (!restoring) leaveFallback();
 
     // boxes over the backdrop: read from the DOM each frame (a handful of rects, no
     // layout thrash — scrolling doesn't invalidate layout), redraw at once when they move
     const boxData = new Float32Array(32); const boxKind = new Float32Array(8); const boxCol = new Float32Array(24);
     let boxN = 0; let boxKey = ''; let boxR = 14;
+    // buffer px per on-screen CSS px — kept from the last rect read instead of measuring the
+    // canvas again in every frame (a rect read inside rAF can force a synchronous layout)
+    let pxPerCss = 1;
     const glowCache = new WeakMap();
     const DEFAULT_GLOW = [238 / 255, 138 / 255, 69 / 255]; // --ember-400
     const glowOf = (el) => {
@@ -378,6 +421,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       const cw = cr.width; const ch = cr.height;
       if (!cw || !ch) return false;
       const kx = canvas.width / cw; const ky = canvas.height / ch;
+      pxPerCss = kx;
       let n = 0; let key = '';
       const add = (el, kind) => {
         if (n >= 8) return;
@@ -494,13 +538,15 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       const small = !force && canvas.width === w && Math.abs(canvas.height - h) < 160 * k;
       if (!small && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
       sizeTargets(Math.max(2, Math.round(canvas.width / 4)), Math.max(2, Math.round(canvas.height / 4)));
+      pxPerCss = canvas.width / Math.max(1, canvas.getBoundingClientRect().width);
       dirty = true;
     };
     const ro = new ResizeObserver(() => resize(false));
     ro.observe(canvas);
     resize(true);
 
-    let mix = 0; let switching = false; let fade = 0;
+    let mix = 0; let switching = false; let fade = restoring ? 1 : 0;
+    let waitingForPicture = restoring;
     let settled = a; let seen = a; let seenAt = performance.now();
     let t = 0; let last = performance.now(); let raf = 0;
     let seed = [0, 0]; let seedAt = 0; let drawnAt = 0;
@@ -590,6 +636,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       // well under a pixel per frame, so ~30 draws/s look identical to 60 — half the GPU.
       if (!reduce && !switching && fade >= 1 && !dirty && now - drawnAt < IDLE_MS) return;
       if (reduce && !dirty) return; // nothing moves: keep the last frame
+      if (waitingForPicture && !tex.has(a)) return; // keep the still picture a moment longer
       dirty = false;
       drawnAt = now;
 
@@ -628,8 +675,9 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       gl.uniform3fv(final.u.uBoxCol, boxCol);
       gl.uniform1i(final.u.uBoxN, boxN);
       gl.uniform1f(final.u.uBoxR, boxR);
-      gl.uniform1f(final.u.uPx, canvas.width / Math.max(1, canvas.getBoundingClientRect().width));
+      gl.uniform1f(final.u.uPx, pxPerCss);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (waitingForPicture) { waitingForPicture = false; leaveFallback(); }
     };
     raf = requestAnimationFrame(frame);
 
@@ -638,7 +686,8 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       if (!document.hidden && !dead) { last = performance.now(); dirty = true; raf = requestAnimationFrame(frame); }
     };
     document.addEventListener('visibilitychange', onVis);
-    const onLost = (e) => { e.preventDefault(); cancelAnimationFrame(raf); dead = true; fallback(); };
+    // preventDefault = "please give it back" (webglcontextrestored → rebuild, see above)
+    const onLost = (e) => { e.preventDefault(); cancelAnimationFrame(raf); dead = true; lostHere = true; fallback(); };
     canvas.addEventListener('webglcontextlost', onLost);
 
     if (import.meta.env.DEV) {
@@ -654,12 +703,14 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       cancelAnimationFrame(raf); ro.disconnect(); stopFallback?.();
       document.removeEventListener('visibilitychange', onVis);
       canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
+      if (lostHere || gl.isContextLost()) return; // those objects died with the old context
       tex.forEach((e) => gl.deleteTexture(e.t));
       targets.forEach((g) => { gl.deleteTexture(g.t); gl.deleteFramebuffer(g.f); });
       gl.deleteTexture(noise); gl.deleteTexture(blank); gl.deleteBuffer(buf);
       [bright, blur, final].forEach((pr) => gl.deleteProgram(pr.p));
     };
-  }, [scenes, settleMs, maxPixels, glassSelector, glowSelector]);
+  }, [scenes, settleMs, maxPixels, glassSelector, glowSelector, generation]);
 
   return <canvas ref={ref} className={`crt ${className}`} aria-hidden="true" />;
 }
