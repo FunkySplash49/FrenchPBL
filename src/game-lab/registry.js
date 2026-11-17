@@ -56,7 +56,7 @@ export const GAMES = [
     title: { fr: 'La Percée', en: 'The Breakout' },
     inspired: 'Metal Gear / Commandos stealth + Five Nights at Freddy’s dread + Minecraft seeds',
     depth: 'ultimate',
-    minutes: 8,
+    minutes: 10,
     pitch: { fr: 'Projet principal : cartes générées à partir d’un code, 5 nuits, infiltration à travers les lignes romaines, classement.', en: 'Main project: maps generated from a seed, 5 nights, sneaking through the Roman lines, leaderboard.' },
     component: lazy(() => import('./games/Percee')),
   },
