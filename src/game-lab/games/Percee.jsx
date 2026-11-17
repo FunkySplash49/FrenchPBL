@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { Volume2, VolumeX, Share2, Zap, Pause, Play, Eye, EyeOff, Maximize, RotateCcw, LogOut, Circle, GripHorizontal, MoveHorizontal, Send, Check, WifiOff } from 'lucide-react';
 import { GameFrame, Card, Debrief, useT, haptic, usePersist } from '../kit';
 import { generate, step, render, createMinimap, throwStone, medalFor, nextGap, angDiff, NIGHTS, TUNE, WORLD } from './percee/engine';
-import { createFP } from './percee/fp3d';
 import { createInput } from './percee/input';
 import { makeAudio } from './percee/audio';
 import { loadBoard, saveBoard, addEntry, standings, todaySeed, randomSeed, fmtTime, scoreNight, scoreRun, POINTS } from './percee/board';
@@ -138,6 +137,11 @@ function LocalBoard({ board, seed, name, highlight, t }) {
   );
 }
 
+/* The three.js view (fp3d + three, about 80 % of the game's code) is its own chunk: the menu paints
+   without it, and it is fetched in the background as soon as the menu is up. */
+let fpModule = null; let fpLoading = null;
+const loadFP = () => fpLoading || (fpLoading = import('./percee/fp3d').then((m) => { fpModule = m; return m; }, (err) => { fpLoading = null; throw err; }));
+
 /* ── the game ─────────────────────────────────────────────────── */
 export default function Percee() {
   const t = useT();
@@ -182,9 +186,19 @@ export default function Percee() {
   const [confirm, setConfirm] = useState('');     // pause menu: 'new' | 'quit' once the button has been pressed a first time
   const [copied, setCopied] = useState('');
   const [no3d, setNo3d] = useState(false);
+  const [fpReady, setFpReady] = useState(() => !!fpModule);
   const [muted, setMuted] = usePersist('percee-muted', false);
   const [horror, setHorror] = usePersist('percee-horror', true);
   const [view, setView] = usePersist('percee-view2', '3d');
+  useEffect(() => {
+    if (view !== '3d' || fpModule) return undefined;
+    let on = true;
+    loadFP().then(() => { if (on) setFpReady(true); }, (err) => {
+      if (!on) return;
+      console.warn('[percee] 3D view could not be loaded, using the 2D map', err); setNo3d(true); setView('2d');
+    });
+    return () => { on = false; };
+  }, [view, setView]);
   const [settings, setSettings] = usePersist('percee-settings', { sens: 1, invertY: false });
   const [name, setName] = usePersist('percee-name', '');
   const [send, setSend] = useState({ state: 'idle' });   // idle | sending | saved {rank,total,improved,best} | error {why}
@@ -350,7 +364,8 @@ export default function Percee() {
     const is3d = view === '3d';
     let fp = null; let ctx = null;
     if (is3d) {
-      try { fp = createFP(canvas); } catch (err) { console.warn('[percee] 3D view unavailable, using the 2D map', err); setNo3d(true); setView('2d'); return undefined; }
+      if (!fpModule) return undefined; // still downloading: this effect runs again once it is here
+      try { fp = fpModule.createFP(canvas); } catch (err) { console.warn('[percee] 3D view unavailable, using the 2D map', err); setNo3d(true); setView('2d'); return undefined; }
     } else ctx = canvas.getContext('2d');
     fpRef.current = fp;
     const still = reducedMotion();
@@ -591,7 +606,7 @@ export default function Percee() {
       fp?.dispose(); fpRef.current = null;
       if (import.meta.env.DEV) delete window.__percee;
     };
-  }, [active, view, setView]);
+  }, [active, view, setView, fpReady]);
 
   // while the stage is up, the page behind must not scroll
   useEffect(() => {
