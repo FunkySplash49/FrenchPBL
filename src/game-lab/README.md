@@ -35,3 +35,20 @@ Games stop arrow/space keys from reaching the story’s step navigation while th
 - Rome = squares / red, Gaul = circles / green — never used for right/wrong (gold and ember instead).
 - 44px touch targets, haptics on phones, reduced-motion respected (no shake, instant moves).
 - Leaderboard (La Percée) is per device (localStorage) with shareable seeds; a shared online board would need a small backend.
+
+## La Percée class board (online)
+
+Players type their name at the end of a run; the score goes to `/api/board` and the shared
+"Classement de la classe" updates live (one row per name, best score kept). The full-screen board
+for the classroom screen is `?g=percee&board` (refreshes every 15 s).
+
+- Function source: `game-lab-api/board.mjs` (Vercel Node function, Upstash Redis over REST, no npm deps).
+- Env on the `alesia-game-lab` Vercel project: `KV_REST_API_URL` + `KV_REST_API_TOKEN`
+  (or `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`). Optional `ADMIN_KEY` enables reset.
+- Local: `npm run dev` serves a mock `/api/board` (in memory; `/api/__dev/down` and `/api/__dev/up`
+  simulate an outage). `npm run test:api` runs the handler tests.
+- Deploy: `npm run deploy:lab` (builds, stages `.deploy/alesia-game-lab` with `api/board.mjs`,
+  then `vercel deploy --prod`). `bash tools/deploy-lab.sh --dry-run` stages without uploading.
+- Reset (needs `ADMIN_KEY` set on the project):
+  `curl -X DELETE -H "x-admin-key: $ADMIN_KEY" https://alesia-game-lab.vercel.app/api/board`
+  (add `?name=Some%20Name` to remove one row only).

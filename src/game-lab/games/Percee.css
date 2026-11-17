@@ -254,6 +254,59 @@
 .pc-menu-btns .gf-btn { justify-content: center; }
 .pc-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
 
+/* ── class board (shared online) and the name field ── */
+.pc-board-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.pc-board-title { margin: 0; font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; letter-spacing: 0.06em; color: var(--text); }
+.pc-board-head .gf-btn { display: inline-flex; align-items: center; gap: var(--space-2); }
+.pc-board .pc-note a { color: var(--accent-strong); }
+.pc-localboard { display: grid; gap: var(--space-3); }
+.pc-offline { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--text); background: rgb(240 106 90 / 0.12); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
+.pc-offline svg { flex: none; color: var(--rome-text); }
+.pc-rows.pc-class li { grid-template-columns: 2.2rem minmax(0, 1fr) 5.4rem 3.2rem 2.8rem 3.6rem; }
+.pc-rows.pc-class .pc-who { letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-rows .pc-goldcol { color: var(--gold-400); font-weight: 600; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.pc-name {
+  min-height: 48px; padding: 0 var(--space-3); flex: 1 1 14rem; min-width: 0;
+  font-family: var(--font-body); font-size: var(--text-base);
+  color: var(--text); background: var(--ink-950); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+.pc-name:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.pc-name[aria-invalid='true'] { border-color: var(--rome-400); }
+.pc-name:disabled { opacity: 0.75; }
+.pc-send { width: 100%; min-height: 1.4em; margin: 0; font-size: var(--text-sm); color: var(--text-muted); display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.pc-send.is-saved { color: var(--gaul-text); font-weight: 600; }
+.pc-send.is-error { color: var(--rome-text); }
+.pc-send svg { flex: none; }
+
+/* ── the class board alone, full screen (?g=percee&board): read from the back of a classroom on a 4K panel ── */
+.pcb {
+  /* the page is zoomed on very large screens (tokens.css --z): viewport units are divided by it */
+  min-height: calc(100vh / var(--z, 1)); min-height: calc(100dvh / var(--z, 1)); box-sizing: border-box; display: grid; grid-template-rows: auto auto 1fr auto; gap: clamp(12px, calc(1.4vw / var(--z, 1)), 40px);
+  padding: clamp(16px, calc(3vw / var(--z, 1)), 72px); background: var(--bg); color: var(--text);
+  font-size: clamp(1rem, 0.6rem + calc(1.15vw / var(--z, 1)), 2.6rem);
+}
+.pcb-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-4); border-bottom: 2px solid var(--border-strong); padding-bottom: 0.5em; }
+.pcb-kicker { margin: 0; font-family: var(--font-display); font-size: 0.6em; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); }
+.pcb-title { margin: 0.1em 0 0; font-family: var(--font-display); font-size: 2em; font-weight: 700; line-height: 1.1; color: var(--accent-strong); }
+.pcb-tools { display: flex; gap: 0.4em; }
+.pcb-tools .gf-btn { display: inline-flex; align-items: center; gap: 0.4em; font-size: 0.6em; min-height: 2.4em; padding: 0 0.9em; }
+.pcb-off { font-size: 0.6em; }
+.pcb-msg { margin: 0; font-size: 0.9em; color: var(--text-muted); }
+.pcb .pc-rows { align-content: start; }
+.pcb .pc-rows.pc-class li { grid-template-columns: 2.6em minmax(0, 1fr) 5.2em 4em 3em 3.6em; gap: 0.6em; min-height: 1.9em; padding: 0 0.4em; font-size: 1em; }
+.pcb .pc-rows-head { font-size: 0.6em !important; min-height: 2em !important; letter-spacing: 0.06em !important; }
+.pcb-cols .pc-rows.pc-class li { min-height: 1.5em; }
+.pcb .pc-rows .pc-score { font-size: 1.15em; }
+.pcb .pc-rows li:nth-child(2) .pc-rank, .pcb .pc-rows li:nth-child(3) .pc-rank, .pcb .pc-rows li:nth-child(4) .pc-rank { color: var(--accent-strong); font-weight: 700; }
+.pcb-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 2.4em; align-content: start; font-size: 0.72em; }
+.pcb-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.4em 1.2em; font-size: 0.5em; color: var(--text-muted); }
+.pcb-foot a { color: var(--accent-strong); }
+@media (max-width: 720px) {
+  .pcb-cols { grid-template-columns: 1fr; font-size: 1em; }
+  .pcb-cols > .pc-rows + .pc-rows .pc-rows-head { display: none; }
+  .pcb .pc-rows.pc-class li { grid-template-columns: 1.6em minmax(0, 1fr) 4.4em 2.6em 2.2em 3em; gap: 0.3em; padding: 0; font-size: 0.9em; }
+}
+
 /* ── small screens ── */
 @media (max-width: 720px) {
   .pc-hud { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); padding-top: max(var(--space-2), env(safe-area-inset-top)); }
@@ -266,11 +319,27 @@
   .pc-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pc-menu-btns { grid-template-columns: 1fr; }
   .pc-rows li { grid-template-columns: 1.6rem minmax(0, 1fr) 4.2rem 2.4rem 3rem; padding: 0; }
+  .pc-rows.pc-class li { grid-template-columns: 1.5rem minmax(0, 1fr) 4rem 2.3rem 2rem 2.7rem; gap: 6px; font-size: 0.8rem; }
   .pc-pts > div { font-size: var(--text-sm); }
   .pc-overlay { padding: var(--space-2); place-items: start center; }
   .pc-overlay .gf-card { padding: var(--space-4); }
   .pc-range { grid-template-columns: 1fr 3ch; }
   .pc-range span { grid-column: 1 / -1; }
+}
+/* phones: each class-board row on two lines (name + points, then nights · gold · time) so names are not cut */
+@media (max-width: 480px) {
+  .pc-rows.pc-class li, .pcb .pc-rows.pc-class li {
+    grid-template-columns: 1.6rem minmax(0, 1fr) 2.6rem 2.2rem 3rem; grid-template-areas: 'r n n p p' 'r . ni g t';
+    row-gap: 0; padding: 4px 0; font-size: 0.85rem;
+  }
+  .pc-rows.pc-class li > :nth-child(1) { grid-area: r; }
+  .pc-rows.pc-class li > :nth-child(2) { grid-area: n; }
+  .pc-rows.pc-class li > :nth-child(3) { grid-area: p; }
+  .pc-rows.pc-class li > :nth-child(4) { grid-area: ni; font-size: 0.75rem; color: var(--text-muted); }
+  .pc-rows.pc-class li > :nth-child(5) { grid-area: g; font-size: 0.75rem; }
+  .pc-rows.pc-class li > :nth-child(6) { grid-area: t; font-size: 0.75rem; color: var(--text-muted); }
+  .pc-rows.pc-class .pc-rows-head { display: none; }
+  .pcb .pc-rows.pc-class li { font-size: 1rem; }
 }
 @media (max-height: 480px) {
   .pc-hud-l { gap: 3px; padding: 4px var(--space-2); font-size: 0.78rem; }

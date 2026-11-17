@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Share2, Zap, Pause, Play, Eye, EyeOff, Copy, Maximize, RotateCcw, LogOut, ChevronUp, ChevronDown, Circle, GripHorizontal, MoveHorizontal } from 'lucide-react';
+import { Volume2, VolumeX, Share2, Zap, Pause, Play, Eye, EyeOff, Maximize, RotateCcw, LogOut, Circle, GripHorizontal, MoveHorizontal, Send, Check, WifiOff } from 'lucide-react';
 import { GameFrame, Card, Debrief, useT, haptic, usePersist } from '../kit';
 import { generate, step, render, createMinimap, throwStone, medalFor, nextGap, angDiff, NIGHTS, TUNE, WORLD } from './percee/engine';
 import { createFP } from './percee/fp3d';
 import { createInput } from './percee/input';
 import { makeAudio } from './percee/audio';
-import { loadBoard, saveBoard, addEntry, standings, encodeScore, decodeScore, matchSeed, todaySeed, randomSeed, cleanInitials, fmtTime, scoreNight, scoreRun, POINTS } from './percee/board';
+import { loadBoard, saveBoard, addEntry, standings, todaySeed, randomSeed, fmtTime, scoreNight, scoreRun, POINTS } from './percee/board';
+import { submitClassScore, nameProblem, tidyName, loadPending, savePending } from './percee/classApi';
+import { ClassBoard } from './percee/ClassBoard';
+import { useLang } from '../../lib/lang';
 import { NIGHT_LINES, FACTS, HINTS, MEDALS, BIG_CONTROLS, BIG_LABELS, POINT_LABELS as PL, POINT_RULE } from './percee/text';
 import './Percee.css';
 
@@ -94,89 +97,43 @@ function Breakdown({ lines, total, totalLabel, t }) {
   );
 }
 
-/** three-letter arcade initials: works with a finger (▲ ▼) and with a keyboard (letters, arrows) */
-function Initials({ value, onChange, t }) {
-  const refs = useRef([]);
-  const set = (i, ch) => onChange(value.slice(0, i) + ch + value.slice(i + 1));
-  const bump = (i, d) => { haptic('light'); set(i, String.fromCharCode(65 + ((value.charCodeAt(i) - 65 + d + 26) % 26))); };
-  const onKey = (i) => (e) => {
-    if (/^[a-zA-Z]$/.test(e.key)) { e.preventDefault(); set(i, e.key.toUpperCase()); refs.current[Math.min(2, i + 1)]?.focus(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); bump(i, 1); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); bump(i, -1); }
-    else if (e.key === 'ArrowLeft' || e.key === 'Backspace') { e.preventDefault(); refs.current[Math.max(0, i - 1)]?.focus(); }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); refs.current[Math.min(2, i + 1)]?.focus(); }
-  };
-  return (
-    <div className="pc-ini" role="group" aria-label={t({ fr: 'Vos initiales', en: 'Your initials' })}>
-      {[0, 1, 2].map((i) => (
-        <div className="pc-ini-slot" key={i}>
-          <button type="button" className="pc-ini-btn" onClick={() => bump(i, 1)} aria-label={t({ fr: `Lettre ${i + 1} suivante`, en: `Next letter ${i + 1}` })}><ChevronUp size={20} aria-hidden="true" /></button>
-          <span className="pc-ini-letter" tabIndex={0} role="spinbutton" aria-valuetext={value[i]} aria-valuenow={value.charCodeAt(i) - 64} aria-valuemin={1} aria-valuemax={26}
-            aria-label={t({ fr: `Lettre ${i + 1}`, en: `Letter ${i + 1}` })} ref={(el) => { refs.current[i] = el; }} onKeyDown={onKey(i)}>{value[i]}</span>
-          <button type="button" className="pc-ini-btn" onClick={() => bump(i, -1)} aria-label={t({ fr: `Lettre ${i + 1} précédente`, en: `Previous letter ${i + 1}` })}><ChevronDown size={20} aria-hidden="true" /></button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 const golds = (r) => (r.medals || []).filter((m) => m === 3).length;
 
-function Board({ board, seed, ini, highlight, onImport, t }) {
+/** the board stored on this device (shown when the class board cannot be reached) */
+function LocalBoard({ board, seed, name, highlight, t }) {
   const daily = todaySeed();
   const [tab, setTab] = useState(seed === daily ? 'daily' : 'map');
-  const [code, setCode] = useState('');
-  const [msg, setMsg] = useState(null);
   const shown = tab === 'daily' ? daily : seed;
-  const st = standings(board, shown, { top: 10, id: highlight, ini });
-  const submit = (e) => {
-    e.preventDefault();
-    const r = onImport(code);
-    setMsg(r);
-    if (r === 'ok') setCode('');
-  };
+  const st = standings(board, shown, { top: 10, id: highlight, name });
   const row = (r, i) => (
     <li key={r.id} className={r.id === highlight ? 'is-me' : undefined}>
       <span className="pc-rank">{i + 1}</span>
-      <span className="pc-who">{r.ini}{golds(r) > 0 && <small className="pc-gold" title={t({ fr: 'Nuits en or', en: 'Gold nights' })}> ★{golds(r)}<span className="pc-sr"> {t({ fr: 'nuits en or', en: 'gold nights' })}</span></small>}{r.src === 'code' && <small> · {t({ fr: 'code', en: 'code' })}</small>}{r.src === 'old' && <small title={t(PL.oldTitle)}> · ≈ {t(PL.old)}</small>}{r.id === highlight && <small className="pc-new"> {t({ fr: 'nouveau', en: 'new' })}</small>}</span>
+      <span className="pc-who">{r.name}{r.src === 'code' && <small> · {t({ fr: 'code', en: 'code' })}</small>}{r.src === 'old' && <small title={t(PL.oldTitle)}> · ≈ {t(PL.old)}</small>}{r.id === highlight && <small className="pc-new"> {t({ fr: 'nouveau', en: 'new' })}</small>}</span>
       <span className="pc-score">{fmtPts(r.points || 0)}</span>
       <span>{r.nights}/{NIGHTS}</span>
+      <span className="pc-goldcol">{golds(r) > 0 ? `★${golds(r)}` : '–'}<span className="pc-sr"> {t({ fr: 'nuits en or', en: 'gold nights' })}</span></span>
       <span>{r.time == null ? '–' : fmtTime(r.time)}</span>
     </li>
   );
   return (
-    <div className="pc-board">
-      <div className="pc-tabs" role="tablist" aria-label={t({ fr: 'Classement', en: 'Leaderboard' })}>
+    <div className="pc-localboard">
+      <div className="pc-tabs" role="tablist" aria-label={t({ fr: 'Classement sur cet appareil', en: 'Board on this device' })}>
         <button type="button" role="tab" aria-selected={tab === 'daily'} className={`pc-tab${tab === 'daily' ? ' is-on' : ''}`} onClick={() => setTab('daily')}>{t({ fr: 'Carte du jour', en: 'Daily map' })}</button>
         {seed !== daily && (
           <button type="button" role="tab" aria-selected={tab === 'map'} className={`pc-tab${tab === 'map' ? ' is-on' : ''}`} onClick={() => setTab('map')}>{t({ fr: 'Entraînement', en: 'Practice' })} · <code>{seed}</code></button>
         )}
       </div>
       {st.rows.length ? (
-        <ol className="pc-rows">
-          <li className="pc-rows-head" aria-hidden="true"><span>#</span><span>{t({ fr: 'Nom', en: 'Name' })}</span><span>{t({ fr: 'Points', en: 'Points' })}</span><span>{t({ fr: 'Nuits', en: 'Nights' })}</span><span>{t({ fr: 'Temps', en: 'Time' })}</span></li>
+        <ol className="pc-rows pc-class">
+          <li className="pc-rows-head" aria-hidden="true"><span>#</span><span>{t({ fr: 'Nom', en: 'Name' })}</span><span>{t({ fr: 'Points', en: 'Points' })}</span><span>{t({ fr: 'Nuits', en: 'Nights' })}</span><span>{t({ fr: 'Or', en: 'Gold' })}</span><span>{t({ fr: 'Temps', en: 'Time' })}</span></li>
           {st.rows.map(row)}
           {st.rank >= 10 && <li className="pc-rows-gap" aria-hidden="true">…</li>}
           {st.rank >= 10 && row(st.mine, st.rank)}
         </ol>
-      ) : <p className="gf-simplified">{t({ fr: 'Aucun score sur cette carte pour l’instant. Soyez le premier.', en: 'No scores on this map yet. Be the first.' })}</p>}
+      ) : <p className="gf-simplified">{t({ fr: 'Aucun score sur cet appareil pour cette carte.', en: 'No scores on this device for this map.' })}</p>}
       {st.best && (
-        <p className="pc-best">{t({ fr: 'Votre record', en: 'Your best' })} ({st.best.ini}){t({ fr: ' : ', en: ': ' })}{fmtPts(st.best.points || 0)} {t(PL.points)}, {st.best.nights}/{NIGHTS} {t({ fr: 'nuits', en: 'nights' })} · {t({ fr: 'rang', en: 'rank' })} {st.bestRank + 1}/{st.total}</p>
+        <p className="pc-best">{t({ fr: 'Votre record', en: 'Your best' })} ({st.best.name}){t({ fr: ' : ', en: ': ' })}{fmtPts(st.best.points || 0)} {t(PL.points)}, {st.best.nights}/{NIGHTS} {t({ fr: 'nuits', en: 'nights' })} · {t({ fr: 'rang', en: 'rank' })} {st.bestRank + 1}/{st.total}</p>
       )}
-      <form className="pc-import" onSubmit={submit}>
-        <label htmlFor="pc-code">{t({ fr: 'Ajouter le score d’un camarade (code)', en: 'Add a classmate’s score (code)' })}</label>
-        <input id="pc-code" value={code} onChange={(e) => { setCode(e.target.value); setMsg(null); }} placeholder="XXXX-XXXX-XXXX" maxLength={16} spellCheck="false" autoComplete="off" autoCapitalize="characters" />
-        <button type="submit" className="gf-btn" disabled={code.replace(/[\s-]/g, '').length < 12}>{t({ fr: 'Ajouter', en: 'Add' })}</button>
-        <p className="pc-import-msg" aria-live="polite">
-          {msg === 'ok' && t({ fr: 'Score ajouté au classement.', en: 'Score added to the board.' })}
-          {msg === 'format' && t({ fr: 'Ce code n’a pas la bonne forme (12 caractères).', en: 'That code does not have the right shape (12 characters).' })}
-          {msg === 'check' && t({ fr: 'Code refusé : une lettre est sans doute mal recopiée.', en: 'Code rejected: a character was probably mistyped.' })}
-          {msg === 'dup' && t({ fr: 'Ce score est déjà au classement.', en: 'That score is already on the board.' })}
-          {msg === 'old' && t({ fr: 'Ce code date d’avant les points : il ne peut pas être converti. Demandez à votre camarade le code de sa nouvelle partie.', en: 'That code is from before points and cannot be converted. Ask your classmate for the code of a new run.' })}
-          {msg === 'seed' && t({ fr: 'Ce code vient d’une autre carte que celles affichées ici.', en: 'That code is for a different map than the ones shown here.' })}
-        </p>
-      </form>
-      <p className="pc-note">{t({ fr: 'Le classement est enregistré sur cet appareil. Échangez vos codes pour comparer vos scores.', en: 'The board is stored on this device. Swap codes to compare scores.' })}</p>
     </div>
   );
 }
@@ -184,6 +141,7 @@ function Board({ board, seed, ini, highlight, onImport, t }) {
 /* ── the game ─────────────────────────────────────────────────── */
 export default function Percee() {
   const t = useT();
+  const { lang } = useLang();
   const stageRef = useRef(null);
   const surfaceRef = useRef(null);
   const canvasRef = useRef(null);
@@ -228,8 +186,9 @@ export default function Percee() {
   const [horror, setHorror] = usePersist('percee-horror', true);
   const [view, setView] = usePersist('percee-view2', '3d');
   const [settings, setSettings] = usePersist('percee-settings', { sens: 1, invertY: false });
-  const [iniRaw, setIni] = usePersist('percee-ini', 'AAA');
-  const ini = cleanInitials(iniRaw);
+  const [name, setName] = usePersist('percee-name', '');
+  const [send, setSend] = useState({ state: 'idle' });   // idle | sending | saved {rank,total,improved,best} | error {why}
+  const [boardKey, setBoardKey] = useState(0);           // bumped after a save: the class board reloads at once
   const [board, setBoard] = useState(loadBoard);
   const [bigPref, setBigPref] = usePersist('percee-big', 'auto');        // auto | on | off
   const [bigSize, setBigSize] = usePersist('percee-bigsize', 1);         // console size, 0.8× to 1.6×
@@ -293,7 +252,7 @@ export default function Percee() {
   };
   const newRun = (s = seed) => {
     run.current = { time: 0, riders: 0, medals: [], tries: 0, pts: [] };
-    setResult(null); setSavedId(null); setCopied('');
+    setResult(null); setSavedId(null); setCopied(''); setSend({ state: 'idle' });
     goFull();
     startNight(1, s);
   };
@@ -643,26 +602,42 @@ export default function Percee() {
   }, [active]);
 
   /* ── leaderboard ── */
-  const saveScore = () => {
-    if (!result || savedId) return;
+  /* The run goes to the class board (/api/board). It is also kept on this device: at once if the
+     class board cannot be reached (and sent again later), otherwise once the server has accepted it. */
+  const keepLocal = () => {
+    if (savedId) return;
     const id = `r-${Date.now().toString(36)}`;
-    const entry = { id, ini, points: result.points, nights: result.nights, riders: result.riders, time: Math.round(result.time), medals: result.medals, at: Date.now(), src: 'local' };
+    const entry = { id, name: tidyName(name), points: result.points, nights: result.nights, riders: result.riders, time: Math.round(result.time), medals: result.medals, at: Date.now(), src: 'local' };
     const b = addEntry(board, result.seed, entry);
-    setBoard(b); saveBoard(b); setSavedId(id); haptic('success');
+    setBoard(b); saveBoard(b); setSavedId(id);
   };
-  const importCode = (text) => {
-    const r = decodeScore(text);
-    if (!r.ok) return r.why;
-    const target = matchSeed(r.tag, [seed, todaySeed()]);
-    if (!target) return 'seed';
-    // the same score already on the board (your own run, or a code pasted twice): do not list it again
-    const e = r.entry;
-    const same = (x) => x.id === e.id || (x.ini === e.ini && x.nights === e.nights && (x.riders || 0) === e.riders && Math.round(x.points || 0) === e.points && golds(x) === golds(e));
-    if ((board[target] || []).some(same)) return 'dup';
-    const b = addEntry(board, target, r.entry);
-    setBoard(b); saveBoard(b);
-    return 'ok';
+  const saveScore = async () => {
+    if (!result || send.state === 'sending' || send.state === 'saved') return;
+    const why = nameProblem(name);
+    if (why) { setSend({ state: 'error', why }); return; }
+    const payload = { name: tidyName(name), points: result.points, nights: result.nights, gold: golds(result), riders: result.riders, time: Math.round(result.time), seed: result.seed };
+    setName(payload.name);
+    setSend({ state: 'sending' });
+    const r = await submitClassScore(payload);
+    if (r.ok) {
+      keepLocal(); haptic('success');
+      const p = loadPending(); if (p && p.name === payload.name && p.points <= payload.points) savePending(null);
+      setSend({ state: 'saved', rank: r.rank, total: r.total, improved: r.improved, best: r.best });
+      setBoardKey((k) => k + 1);
+    } else {
+      if (r.error === 'offline' || r.error === 'rate') {
+        keepLocal();
+        const p = loadPending(); if (!p || p.points <= payload.points || p.name !== payload.name) savePending(payload);
+      }
+      haptic('miss');
+      setSend({ state: 'error', why: r.error });
+    }
   };
+  // a score that could not be sent earlier goes out quietly the next time the game opens
+  useEffect(() => {
+    const p = loadPending(); if (!p) return;
+    submitClassScore(p).then((r) => { if (r.ok || r.error === 'name' || r.error === 'profanity' || r.error === 'invalid') { savePending(null); if (r.ok) setBoardKey((k) => k + 1); } });
+  }, []);
   const copy = async (what, text) => {
     try { await navigator.clipboard.writeText(text); setCopied(what); haptic('light'); } catch { setCopied(`${what}-fail`); }
   };
@@ -695,7 +670,6 @@ export default function Percee() {
     : hud.status === 'seen' ? t({ fr: 'On vous voit', en: 'Seen' })
       : hud.town ? t({ fr: 'En sûreté', en: 'Safe' })
         : hud.hidden ? t({ fr: 'Caché', en: 'Hidden' }) : t({ fr: 'Invisible', en: 'Unseen' });
-  const code = result && savedId ? encodeScore(result.seed, { ini, nights: result.nights, riders: result.riders, points: result.points, medals: result.medals }) : '';
   const setRef = (k) => (el) => { dom.current[k] = el; };
   const d0 = () => dom.current;
 
@@ -989,25 +963,41 @@ export default function Percee() {
                   { label: PL.retry, n: result.tries, pts: -result.tries * POINTS.retry },
                 ]} />
             )}
-            {!savedId ? (
-              <div className="pc-save">
-                <p className="pc-label">{t({ fr: 'Vos initiales', en: 'Your initials' })}</p>
-                <Initials value={ini} onChange={setIni} t={t} />
-                <button type="button" className="gf-btn is-on" onClick={saveScore}>{t({ fr: 'Enregistrer le score', en: 'Save the score' })}</button>
-              </div>
-            ) : (
-              <div className="pc-save">
-                <p className="pc-label">{t({ fr: 'Score enregistré. Votre code à partager :', en: 'Score saved. Your code to share:' })}</p>
-                <code className="pc-code">{code}</code>
-                <button type="button" className="gf-btn" onClick={() => copy('code', code)}><Copy size={16} aria-hidden="true" /> {copied === 'code' ? t({ fr: 'Copié', en: 'Copied' }) : t({ fr: 'Copier le code', en: 'Copy the code' })}</button>
-              </div>
-            )}
+            <form className="pc-save" onSubmit={(e) => { e.preventDefault(); saveScore(); }}>
+              <label className="pc-label" htmlFor="pc-name">{t({ fr: 'Votre nom (prénom et nom)', en: 'Your name (first and last)' })}</label>
+              <input id="pc-name" className="pc-name" value={name} maxLength={24} autoComplete="name" spellCheck="false" enterKeyHint="send"
+                placeholder={t({ fr: 'ex. Camille Martin', en: 'e.g. Camille Martin' })} disabled={send.state === 'sending' || send.state === 'saved'}
+                aria-invalid={send.state === 'error' && ['empty', 'long', 'chars', 'name', 'profanity'].includes(send.why) ? 'true' : undefined} aria-describedby="pc-send-msg"
+                onChange={(e) => { setName(e.target.value.slice(0, 24)); if (send.state === 'error') setSend({ state: 'idle' }); }} />
+              {send.state !== 'saved' && (
+                <button type="submit" className="gf-btn is-on" disabled={send.state === 'sending' || !tidyName(name)}>
+                  <Send size={16} aria-hidden="true" /> {send.state === 'sending' ? t({ fr: 'Envoi…', en: 'Sending…' })
+                    : send.state === 'error' && (send.why === 'offline' || send.why === 'rate') ? t({ fr: 'Réessayer', en: 'Try again' })
+                      : t({ fr: 'Enregistrer au classement', en: 'Save to the class board' })}
+                </button>
+              )}
+              <p id="pc-send-msg" className={`pc-send is-${send.state}`} role="status" aria-live="polite">
+                {send.state === 'idle' && t({ fr: 'Votre score apparaîtra tout de suite au classement de la classe. Un nom = une ligne : seul votre meilleur score reste.', en: 'Your score shows up right away on the class board. One name = one row: only your best score stays.' })}
+                {send.state === 'sending' && t({ fr: 'Envoi au classement de la classe…', en: 'Sending to the class board…' })}
+                {send.state === 'saved' && <><Check size={16} aria-hidden="true" /> {send.improved
+                  ? t({ fr: `Enregistré ! Vous êtes ${send.rank}${send.rank === 1 ? 'er' : 'e'} sur ${send.total}.`, en: `Saved! You are number ${send.rank} of ${send.total}.` })
+                  : t({ fr: `Enregistré, mais votre record (${fmtPts(send.best?.points || 0)} pts) reste au classement : ${send.rank}${send.rank === 1 ? 'er' : 'e'} sur ${send.total}.`, en: `Saved, but your best (${fmtPts(send.best?.points || 0)} pts) stays on the board: number ${send.rank} of ${send.total}.` })}</>}
+                {send.state === 'error' && send.why === 'empty' && t({ fr: 'Écrivez votre nom pour enregistrer le score.', en: 'Type your name to save the score.' })}
+                {send.state === 'error' && send.why === 'long' && t({ fr: 'Nom trop long : 24 caractères au plus.', en: 'Name too long: 24 characters at most.' })}
+                {send.state === 'error' && (send.why === 'chars' || send.why === 'name') && t({ fr: 'Lettres, chiffres, espaces, tirets et apostrophes seulement.', en: 'Letters, numbers, spaces, hyphens and apostrophes only.' })}
+                {send.state === 'error' && send.why === 'profanity' && t({ fr: 'Ce nom n’est pas accepté. Utilisez votre vrai nom.', en: 'That name is not accepted. Please use your real name.' })}
+                {send.state === 'error' && send.why === 'invalid' && t({ fr: 'Le classement a refusé ce score.', en: 'The class board refused this score.' })}
+                {send.state === 'error' && send.why === 'rate' && <><WifiOff size={16} aria-hidden="true" /> {t({ fr: 'Trop d’envois d’un coup. Score gardé sur cet appareil : réessayez dans une minute.', en: 'Too many saves at once. Score kept on this device: try again in a minute.' })}</>}
+                {send.state === 'error' && send.why === 'offline' && <><WifiOff size={16} aria-hidden="true" /> {t({ fr: 'Classement injoignable. Score gardé sur cet appareil : réessayez, ou il partira tout seul à la prochaine ouverture du jeu.', en: 'The class board cannot be reached. Score kept on this device: try again, or it will be sent by itself next time the game opens.' })}</>}
+              </p>
+            </form>
             <div className="gf-row">
               <button type="button" className="gf-btn" onClick={shareLink}><Share2 size={16} aria-hidden="true" /> {copied === 'link' ? t({ fr: 'Lien copié', en: 'Link copied' }) : t({ fr: 'Défier un ami sur cette carte', en: 'Challenge a friend on this map' })}</button>
               <button type="button" className="gf-btn" onClick={quit}>{t({ fr: 'Retour au menu', en: 'Back to the menu' })}</button>
             </div>
             {copied.endsWith('-fail') && <p className="gf-simplified">{t({ fr: 'Copie impossible ici : recopiez le texte à la main.', en: 'Copying is not available here: please copy the text by hand.' })}</p>}
-            <Board board={board} seed={result.seed} ini={ini} highlight={savedId} onImport={importCode} t={t} />
+            <ClassBoard me={send.state === 'saved' ? name : null} t={t} lang={lang} refreshKey={boardKey}
+              fallback={<LocalBoard board={board} seed={result.seed} name={name} highlight={savedId} t={t} />} />
             <Debrief
               source={{ fr: 'César, Guerre des Gaules VII.71 : avant l’achèvement des travaux, Vercingétorix renvoie sa cavalerie de nuit, par les intervalles laissés dans nos lignes.', en: 'Caesar, Gallic War VII.71: before the works were complete, Vercingétorix sent his cavalry away by night through gaps left in our lines.' }}
               simplified={{ fr: 'les cartes sont générées au hasard ; les tours n’avaient pas de « projecteurs » (les faisceaux rendent visible le regard des sentinelles) ; la sortie s’est faite en une seule nuit, pas cinq ; et rien ne dit que des cavaliers attendaient cachés dans les bois.', en: 'the maps are random; towers had no “searchlights” (the beams make the sentries’ gaze visible); the breakout happened in one night, not five; and nothing says riders were waiting hidden in the woods.' }}
@@ -1049,8 +1039,8 @@ export default function Percee() {
             <button type="button" className="gf-btn" onClick={shareLink}><Share2 size={16} aria-hidden="true" /> {copied === 'link' ? t({ fr: 'Lien copié', en: 'Link copied' }) : t({ fr: 'Partager', en: 'Share' })}</button>
           </div>
           <p className="pc-note">{seed === todaySeed()
-            ? t({ fr: 'Carte du jour : la même pour toute la classe, avec son classement.', en: 'Daily map: the same for the whole class, with its own board.' })
-            : t({ fr: 'Carte d’entraînement : classée à part.', en: 'Practice map: ranked separately.' })}</p>
+            ? t({ fr: 'Carte du jour : la même pour toute la classe.', en: 'Daily map: the same for the whole class.' })
+            : t({ fr: 'Carte d’entraînement : une autre carte, même classement.', en: 'Practice map: a different map, same class board.' })}</p>
           <div className="pc-view" role="group" aria-label={t({ fr: 'Vue', en: 'View' })}>
             <button type="button" className={`gf-btn${is3d ? ' is-on' : ''}`} aria-pressed={is3d} onClick={() => { setNo3d(false); setView('3d'); }}>{t({ fr: 'Vue subjective 3D', en: 'First-person 3D' })}</button>
             <button type="button" className={`gf-btn${!is3d ? ' is-on' : ''}`} aria-pressed={!is3d} onClick={() => setView('2d')}>{t({ fr: 'Carte 2D (plus simple)', en: '2D map (simpler)' })}</button>
@@ -1061,7 +1051,8 @@ export default function Percee() {
             <span>{t({ fr: 'Mode « Effroi » : nuit plus noire, lanterne, grain, chuchotements, cœur qui bat (déconseillé aux plus sensibles)', en: '“Dread” mode: darker night, lantern, grain, whispers, heartbeat (not for the faint-hearted)' })}</span>
           </label>
           {SettingsRow}
-          <Board board={board} seed={seed} ini={ini} highlight={null} onImport={importCode} t={t} />
+          <ClassBoard me={name} t={t} lang={lang} refreshKey={boardKey} paused={active} onScreenHref="?g=percee&board"
+            fallback={<LocalBoard board={board} seed={seed} name={name} highlight={null} t={t} />} />
         </Card>
       </div>
       {stage}

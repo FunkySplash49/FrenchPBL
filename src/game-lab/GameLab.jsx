@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Languages } from 'lucide-react';
 import { useLang } from '../lib/lang';
 import { haptic } from '../lib/haptics';
@@ -11,7 +11,16 @@ function readId() {
   return GAMES.some((g) => g.id === id) ? id : GAMES[0].id;
 }
 
+/* ?g=percee&board → La Percée's class board alone, full screen (for the classroom's big screen) */
+const PerceeBoard = lazy(() => import('./games/PerceeBoard'));
+const boardOnly = () => { const q = new URLSearchParams(window.location.search); return q.get('g') === 'percee' && q.has('board'); };
+
 export default function GameLab() {
+  if (boardOnly()) return <Suspense fallback={null}><PerceeBoard /></Suspense>;
+  return <Lab />;
+}
+
+function Lab() {
   const t = useT();
   const { lang, cycle } = useLang();
   const [id, setId] = useState(readId);

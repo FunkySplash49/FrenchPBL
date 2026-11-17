@@ -1,9 +1,12 @@
 /*
  * La Percée — leaderboard (per device, per map seed) and share codes.
  *
- * There is no server: a score lives in this browser's localStorage. To compare with classmates,
- * a score packs into a 12-character code (Crockford Base32: 11 symbols + 1 check symbol, value mod 31) that anyone can type
- * into their own board. Codes can be forged — fine for a class game; the check only catches typos.
+ * The class board is shared online (classApi.js → /api/board). This file is the board kept in this
+ * browser's localStorage: every saved run lands here too, and it is what the game shows when the class
+ * board cannot be reached. Entries carry the player's name (older ones: three initials).
+ *
+ * Share codes (no longer shown in the game since the class board went online, kept for old links):
+ * a score packs into a 12-character code (Crockford Base32: 11 symbols + 1 check symbol, value mod 31).
  *
  * Scores are points (board v3, codes version 2). See POINTS below for the formula.
  */
@@ -61,7 +64,8 @@ export const compare = (a, b) => num(b.points) - num(a.points) || num(b.nights) 
 function upgrade(e, i) {
   if (!e || typeof e !== 'object') return null;
   const medals = Array.isArray(e.medals) ? e.medals.map((m) => Math.max(0, Math.min(3, m | 0))) : [];
-  const base = { id: String(e.id || `old-${e.at || i}`), ini: cleanInitials(e.ini || e.name), nights: Math.max(0, Math.min(5, e.nights | 0)), riders: Math.max(0, e.riders | 0), time: e.time == null ? null : Math.max(0, e.time | 0), medals, at: num(e.at) };
+  const name = typeof e.name === 'string' && e.name.trim() ? e.name.trim().slice(0, 24) : cleanInitials(e.ini);
+  const base = { id: String(e.id || `old-${e.at || i}`), name, ini: cleanInitials(e.ini || e.name), nights: Math.max(0, Math.min(5, e.nights | 0)), riders: Math.max(0, e.riders | 0), time: e.time == null ? null : Math.max(0, e.time | 0), medals, at: num(e.at) };
   if (Number.isFinite(e.points)) return { ...base, points: Math.max(0, Math.round(e.points)), src: e.src === 'code' ? 'code' : e.src === 'old' ? 'old' : 'local' };
   return { ...base, points: estimate(base), src: 'old' }; // marked: an estimate, from before points
 }
@@ -95,11 +99,12 @@ export function addEntry(board, seed, entry) {
   const list = [...(board[seed] || []).filter((e) => e.id !== entry.id), entry].sort(compare).slice(0, 50);
   return { ...board, [seed]: list };
 }
-/** top N rows + where `id` stands + this player's best */
-export function standings(board, seed, { top = 10, id = null, ini = null } = {}) {
+/** top N rows + where `id` stands + this player's best (`name` matched without case) */
+export function standings(board, seed, { top = 10, id = null, name = null } = {}) {
   const all = (board[seed] || []).slice().sort(compare);
   const rank = id ? all.findIndex((e) => e.id === id) : -1;
-  const best = ini ? all.find((e) => e.ini === ini && e.src !== 'code') || null : null;
+  const low = name ? String(name).trim().toLocaleLowerCase('fr') : '';
+  const best = low ? all.find((e) => String(e.name || '').toLocaleLowerCase('fr') === low && e.src !== 'code') || null : null;
   return { rows: all.slice(0, top), total: all.length, rank, mine: rank >= 0 ? all[rank] : null, best, bestRank: best ? all.indexOf(best) : -1 };
 }
 
