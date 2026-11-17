@@ -150,6 +150,10 @@ export function createFP(canvas) {
   const mat2 = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide });
   const glowTex = glowTexture();
   const shared = [mat, mat2, glowTex];
+  // Materials outlive a night: disposing them made three.js delete and recompile ~15 shader programs at
+  // the start of every night. Each one is made once, on first use, and its per-night values are set in load().
+  const mats = new Map();
+  const reuse = (key, make) => { let m = mats.get(key); if (!m) { m = make(); mats.set(key, m); shared.push(m); } return m; };
 
   let world = null;        // everything below is rebuilt by load()
   let L = null;
@@ -209,7 +213,7 @@ export function createFP(canvas) {
     const moonBase = (wx === 'clear' ? 1.25 : wx === 'fog' ? 0.6 : 0.35) * (horror ? 0.45 : 1);
 
     // ── sky dome, stars, moon, far hills ──
-    const skyMat = keep(new THREE.ShaderMaterial({
+    const skyMat = reuse('sky', () => new THREE.ShaderMaterial({
       uniforms: { uHorizon: { value: new THREE.Color() }, uZenith: { value: new THREE.Color() }, uDawn: { value: new THREE.Color(0xd9652a) }, uDawnK: { value: 0 } },
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: `uniform vec3 uHorizon; uniform vec3 uZenith; uniform vec3 uDawn; uniform float uDawnK; varying vec3 vDir;
@@ -233,14 +237,15 @@ export function createFP(canvas) {
         sp[i * 3] = Math.cos(a) * Math.cos(e) * r; sp[i * 3 + 1] = Math.sin(e) * r; sp[i * 3 + 2] = Math.sin(a) * Math.cos(e) * r;
       }
       const sg = keep(new THREE.BufferGeometry()); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-      stars = add(new THREE.Points(sg, keep(new THREE.PointsMaterial({ color: 0xdfe6f5, size: 1.6, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.85, depthWrite: false }))));
+      stars = add(new THREE.Points(sg, reuse('stars', () => new THREE.PointsMaterial({ color: 0xdfe6f5, size: 1.6, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.85, depthWrite: false }))));
       stars.renderOrder = -9; stars.frustumCulled = false;
     }
     let moonMesh = null; let moonGlow = null;
     if (wx !== 'rain') {
-      moonMesh = add(new THREE.Mesh(keep(new THREE.CircleGeometry(9, 20)), keep(new THREE.MeshBasicMaterial({ color: wx === 'fog' ? 0x8f9aae : 0xe6ecf7, fog: false, depthWrite: false }))));
-      moonMesh.renderOrder = -8;
-      moonGlow = add(new THREE.Sprite(keep(new THREE.SpriteMaterial({ map: glowTex, color: 0x6f86b8, blending: THREE.AdditiveBlending, fog: false, depthWrite: false, opacity: wx === 'fog' ? 0.9 : 0.55 }))));
+      moonMesh = add(new THREE.Mesh(keep(new THREE.CircleGeometry(9, 20)), reuse('moon', () => new THREE.MeshBasicMaterial({ fog: false, depthWrite: false }))));
+      moonMesh.renderOrder = -8; moonMesh.material.color.setHex(wx === 'fog' ? 0x8f9aae : 0xe6ecf7);
+      moonGlow = add(new THREE.Sprite(reuse('moonGlow', () => new THREE.SpriteMaterial({ map: glowTex, color: 0x6f86b8, blending: THREE.AdditiveBlending, fog: false, depthWrite: false }))));
+      moonGlow.material.opacity = wx === 'fog' ? 0.9 : 0.55;
       moonGlow.scale.setScalar(wx === 'fog' ? 130 : 80); moonGlow.renderOrder = -8;
     }
     // far hills: a jagged ring, a shade darker than the horizon
@@ -252,7 +257,7 @@ export function createFP(canvas) {
       if (i) { const b = i * 2; hi.push(b - 2, b, b - 1, b - 1, b, b + 1); }
     }
     const hillGeo = keep(new THREE.BufferGeometry()); hillGeo.setAttribute('position', new THREE.Float32BufferAttribute(hp, 3)); hillGeo.setIndex(hi);
-    const hillMat = keep(new THREE.MeshBasicMaterial({ color: 0x000000, fog: false, side: THREE.DoubleSide, depthWrite: false }));
+    const hillMat = reuse('hills', () => new THREE.MeshBasicMaterial({ color: 0x000000, fog: false, side: THREE.DoubleSide, depthWrite: false }));
     const hills = add(new THREE.Mesh(hillGeo, hillMat)); hills.renderOrder = -7; hills.frustumCulled = false;
 
     // ── terrain: vertex-coloured, flat-shaded ──
@@ -278,7 +283,7 @@ export function createFP(canvas) {
     const terrain = add(new THREE.Mesh(tg, mat)); terrain.renderOrder = -5; terrain.frustumCulled = false;
 
     // rivers: dark water with a moonlit sheen
-    const waterMat = keep(new THREE.MeshLambertMaterial({ color: 0x1c2b3a, emissive: 0x0a1420, side: THREE.DoubleSide }));
+    const waterMat = reuse('water', () => new THREE.MeshLambertMaterial({ color: 0x1c2b3a, emissive: 0x0a1420, side: THREE.DoubleSide }));
     w.rivers.forEach((pts) => {
       const pos = []; const idx = [];
       pts.forEach(([x, y], i) => {
@@ -301,7 +306,7 @@ export function createFP(canvas) {
     w.watchers.forEach((o, i) => { aHalf[i] = o.half; });
     poolGeo.setAttribute('aHalf', new THREE.InstancedBufferAttribute(aHalf, 1)); poolGeo.setAttribute('aTint', aTint);
     const lightU = () => THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uColor: { value: new THREE.Color(0xffb866) }, uAlert: { value: new THREE.Color(0xff5a48) }, uOpacity: { value: 1 } }]);
-    const poolMat = keep(new THREE.ShaderMaterial({
+    const poolMat = reuse('pool', () => new THREE.ShaderMaterial({
       uniforms: lightU(), fog: true, transparent: false, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
       vertexShader: `attribute float aHalf; attribute float aTint; varying vec2 vL; varying float vHalf; varying float vTint;
         #include <common>
@@ -329,7 +334,7 @@ export function createFP(canvas) {
 
     const beamGeo = keep(new THREE.CylinderGeometry(0.04, 1, 1, 20, 1, true)); beamGeo.translate(0, -0.5, 0);
     beamGeo.setAttribute('aTint', aTint);
-    const beamMat = keep(new THREE.ShaderMaterial({
+    const beamMat = reuse('beam', () => new THREE.ShaderMaterial({
       uniforms: lightU(), fog: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
       vertexShader: `attribute float aTint; varying float vT; varying float vRim; varying float vTint;
         #include <common>
@@ -445,7 +450,7 @@ export function createFP(canvas) {
     const glowGeo = keep(new THREE.BufferGeometry());
     const glowPos = new THREE.BufferAttribute(gp, 3); glowPos.setUsage(THREE.DynamicDrawUsage);
     glowGeo.setAttribute('position', glowPos); glowGeo.setAttribute('color', new THREE.BufferAttribute(gc, 3));
-    const glowMat = keep(new THREE.PointsMaterial({ map: glowTex, size: 2.6, sizeAttenuation: true, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    const glowMat = reuse('glow', () => new THREE.PointsMaterial({ map: glowTex, size: 2.6, sizeAttenuation: true, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
     const glows = add(new THREE.Points(glowGeo, glowMat)); glows.frustumCulled = false; glows.renderOrder = 6;
 
     // ── Alésia: round houses with thatched roofs, low fires ──
@@ -498,7 +503,7 @@ export function createFP(canvas) {
     pillar.setAttribute('color', new THREE.BufferAttribute(pc, 3)); keep(pillar);
     const gapsAll = [...w.inner.gapPts, ...w.outer.gapPts];
     const nB = w.riders.length + gapsAll.length + 1;
-    const beaconMat = keep(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false, opacity: 0.5 }));
+    const beaconMat = reuse('beacon', () => new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false, opacity: 0.5 }));
     const beacons = add(new THREE.InstancedMesh(pillar, beaconMat, nB)); beacons.frustumCulled = false; beacons.renderOrder = 4;
     beacons.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const cGaul = new THREE.Color(0x4fd070); const cGold = new THREE.Color(0xe2b04a); const cRome = new THREE.Color(0xf06a5a);
@@ -511,12 +516,14 @@ export function createFP(canvas) {
 
     // a ring on the ground: where the stone landed / where you were seen
     const ringGeo = keep(new THREE.RingGeometry(0.82, 1, 28)); ringGeo.rotateX(-Math.PI / 2);
-    const mkRing = (color) => {
-      const m = add(new THREE.Mesh(ringGeo, keep(new THREE.MeshBasicMaterial({ color, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, fog: false }))));
+    const mkRing = (key, color) => {
+      const rm = reuse(key, () => new THREE.MeshBasicMaterial({ blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, fog: false }));
+      rm.color.setHex(color);
+      const m = add(new THREE.Mesh(ringGeo, rm));
       m.renderOrder = -2; m.visible = false; return m;
     };
-    const pingRing = mkRing(0xf7ecd6); const seenRing = mkRing(0xf06a5a);
-    const stoneMesh = add(new THREE.Mesh(keep(ico(0.09)), keep(new THREE.MeshBasicMaterial({ color: 0xcfc6b4 })))); stoneMesh.visible = false;
+    const pingRing = mkRing('ringPing', 0xf7ecd6); const seenRing = mkRing('ringSeen', 0xf06a5a);
+    const stoneMesh = add(new THREE.Mesh(keep(ico(0.09)), reuse('stone', () => new THREE.MeshBasicMaterial({ color: 0xcfc6b4 })))); stoneMesh.visible = false;
 
     // ── weather ──
     let rain = null;
@@ -529,7 +536,7 @@ export function createFP(canvas) {
       const geo = keep(new THREE.BufferGeometry());
       geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 6), 3));
       geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 3)); geo.setAttribute('aEnd', new THREE.BufferAttribute(end, 1));
-      const rm = keep(new THREE.ShaderMaterial({
+      const rm = reuse('rain', () => new THREE.ShaderMaterial({
         uniforms: { uTime: { value: 0 }, uBox: { value: 26 }, uSpeed: { value: 21 }, uLen: { value: 0.55 }, uCam: { value: new THREE.Vector3() }, uColor: { value: new THREE.Color(0xa9b8cc) }, uOpacity: { value: 0.5 } },
         transparent: true, depthWrite: false,
         vertexShader: `attribute vec3 aSeed; attribute float aEnd; uniform float uTime; uniform float uBox; uniform float uSpeed; uniform float uLen; uniform vec3 uCam; varying float vA;
@@ -549,7 +556,8 @@ export function createFP(canvas) {
     for (let i = 0; i < mistN; i++) {
       const tex = i ? keep(mistTex.clone()) : mistTex; tex.repeat.set(3, 3);
       const mg = keep(new THREE.PlaneGeometry(150, 150)); mg.rotateX(-Math.PI / 2);
-      const mm = keep(new THREE.MeshBasicMaterial({ map: tex, color: wx === 'fog' ? 0xaab4c4 : 0x7f8ea8, transparent: true, opacity: (wx === 'fog' ? 0.5 : 0.28) * (horror ? 1.3 : 1), depthWrite: false, fog: true }));
+      const mm = reuse(`mist${i}`, () => new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, fog: true }));
+      mm.map = tex; mm.color.setHex(wx === 'fog' ? 0xaab4c4 : 0x7f8ea8); mm.opacity = (wx === 'fog' ? 0.5 : 0.28) * (horror ? 1.3 : 1);
       const m = add(new THREE.Mesh(mg, mm)); m.renderOrder = 3; m.frustumCulled = false; mists.push({ m, tex, y: 0.55 + i * 0.75 });
     }
 
@@ -559,7 +567,7 @@ export function createFP(canvas) {
     const dustPos = new THREE.BufferAttribute(dpos, 3); const dustCol = new THREE.BufferAttribute(dcol, 3);
     dustPos.setUsage(THREE.DynamicDrawUsage); dustCol.setUsage(THREE.DynamicDrawUsage);
     dustGeo.setAttribute('position', dustPos); dustGeo.setAttribute('color', dustCol);
-    const dust = add(new THREE.Points(dustGeo, keep(new THREE.PointsMaterial({ map: glowTex, size: 1.5, sizeAttenuation: true, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }))));
+    const dust = add(new THREE.Points(dustGeo, reuse('dust', () => new THREE.PointsMaterial({ map: glowTex, size: 1.5, sizeAttenuation: true, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }))));
     dust.frustumCulled = false; dust.renderOrder = 6;
 
     // ── the horse you ride: neck, head, ears, mane and reins, seen from the saddle ──
