@@ -88,7 +88,7 @@ export default function Outro({ onActive, onTop }) {
           </div>
         </div>
 
-        <a className="btn-primary lab-cta" href="./game-lab.html">
+        <a className="btn-primary lab-cta" href="https://alesia-game-lab.vercel.app/">
           {en ? 'Play La Percée →' : 'Jouer à La Percée →'}
         </a>
         <button type="button" className="btn-ghost" onClick={onTop}>
