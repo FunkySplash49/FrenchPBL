@@ -124,11 +124,20 @@
 .tv-done { justify-self: start; display: inline-flex; align-items: center; gap: var(--space-2); }
 
 /* ── picture viewer ── */
-.tv-zoom { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: var(--space-4); background: rgb(18 10 6 / 0.94); cursor: zoom-out; }
-.tv-zoom figure { margin: 0; max-width: min(calc(92vw / var(--z, 1)), 1100px); display: grid; gap: var(--space-2); justify-items: center; cursor: default; }
-.tv-zoom img { max-width: 100%; max-height: calc(74svh / var(--z, 1)); object-fit: contain; border-radius: var(--radius-sm); }
-.tv-zoom figcaption { color: var(--text-muted); font-size: var(--text-sm); text-align: center; }
-.tv-zoom-nav { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); }
+.tv-zoom {
+  position: fixed; inset: 0; z-index: 80; display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; gap: var(--space-2);
+  padding: var(--space-4) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+  background: rgb(18 10 6 / 0.94); cursor: zoom-out;
+}
+.tv-zoom figure { margin: 0; width: 100%; height: 100%; min-height: 0; max-width: min(calc(92vw / var(--z, 1)), 1100px); display: grid; grid-template-rows: minmax(0, 1fr) 3.2rem; gap: var(--space-3); }
+.tv-zoom-stage { container-type: size; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+.tv-zoom img { display: block; max-width: 100cqw; max-height: 100cqh; object-fit: contain; border-radius: var(--radius-sm); cursor: default; }
+.tv-zoom figcaption { justify-self: center; max-width: 62ch; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.45; text-align: center; text-wrap: balance; cursor: default; }
+.tv-zoom figcaption a { white-space: nowrap; }
+.tv-zoom figcaption a svg { display: inline-block; vertical-align: -1px; }
+.tv-zoom-nav { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); cursor: default; }
+.tv-zoom-count { min-width: 7ch; text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 400px) { .tv-zoom figure { grid-template-rows: minmax(0, 1fr) 4rem; } } /* room for a three-line caption */
 
 @media (max-width: 560px) {
   .tv-back span { display: none; }

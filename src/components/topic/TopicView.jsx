@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, ArrowDown, X, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ArrowDown, ChevronLeft, ChevronRight, X, ExternalLink } from 'lucide-react';
 import { TOPICS } from '../../data/topics';
 import { PREVIEWS } from '../../data/previews';
 import { useLang, pick, frTypo } from '../../lib/lang';
@@ -261,25 +261,28 @@ export default function TopicView({ id }) {
       <AnimatePresence>
         {zoom != null && imgs[zoom] && (
           <motion.div className="tv-zoom" onClick={() => setZoom(null)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {/* The picture gets a fixed stage and the caption a fixed slot, and the controls live
+                outside both, so they stay put whatever the picture's shape. */}
             <motion.figure
               initial={reduce ? false : { scale: 0.85, y: 20 }} animate={{ scale: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-              onClick={(e) => e.stopPropagation()}
             >
-              <img src={imgs[zoom].thumb} alt={pick(imgs[zoom].caption, lang).replace(/\*/g, '')} />
-              <figcaption>
+              <div className="tv-zoom-stage">
+                <img src={imgs[zoom].thumb} alt={pick(imgs[zoom].caption, lang).replace(/\*/g, '')} onClick={(e) => e.stopPropagation()} />
+              </div>
+              <figcaption onClick={(e) => e.stopPropagation()}>
                 {tx(imgs[zoom].caption)}{' · '}
                 <a href={`https://commons.wikimedia.org/wiki/File:${encodeURIComponent(imgs[zoom].file)}`} target="_blank" rel="noreferrer">
                   {en ? 'credit' : 'crédit'} <ExternalLink size={11} aria-hidden="true" />
                 </a>
               </figcaption>
-              <div className="tv-zoom-nav">
-                <button type="button" className="tv-btn tv-round" onClick={() => setZoom((zoom - 1 + imgs.length) % imgs.length)} aria-label={en ? 'Previous picture' : 'Image précédente'}>‹</button>
-                <span>{zoom + 1} / {imgs.length}</span>
-                <button type="button" className="tv-btn tv-round" onClick={() => setZoom((zoom + 1) % imgs.length)} aria-label={en ? 'Next picture' : 'Image suivante'}>›</button>
-                <button type="button" className="tv-btn tv-round" onClick={() => setZoom(null)} aria-label={en ? 'Close picture' : 'Fermer l’image'}><X size={18} aria-hidden="true" /></button>
-              </div>
             </motion.figure>
+            <div className="tv-zoom-nav" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="tv-btn tv-round" onClick={() => setZoom((zoom - 1 + imgs.length) % imgs.length)} aria-label={en ? 'Previous picture' : 'Image précédente'}><ChevronLeft size={20} aria-hidden="true" /></button>
+              <span className="tv-zoom-count">{zoom + 1} / {imgs.length}</span>
+              <button type="button" className="tv-btn tv-round" onClick={() => setZoom((zoom + 1) % imgs.length)} aria-label={en ? 'Next picture' : 'Image suivante'}><ChevronRight size={20} aria-hidden="true" /></button>
+              <button type="button" className="tv-btn tv-round" onClick={() => setZoom(null)} aria-label={en ? 'Close picture' : 'Fermer l’image'}><X size={18} aria-hidden="true" /></button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
