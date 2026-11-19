@@ -1,5 +1,5 @@
 /*
- * La Percée — first-person 3D view (three.js), built from the same seeded world as the 2D map.
+ * La Percée — first-person 3D view (three.js), built from the seeded world.
  *
  * Low-poly and cheap on purpose (phones, and the classroom's 4K touch monitor with a weak chip):
  *  - one shared Lambert material with vertex colours; everything repeated is an InstancedMesh
@@ -18,6 +18,8 @@ import { WORLD, TOWN, TUNE, hashSeed, mulberry32, riverY, nextGap } from './engi
 export const S = 0.06;
 const EYE = 2.35; // a rider on horseback
 const RES_STEPS = [1, 0.85, 0.7, 0.55, 0.45];
+const SECTOR = 16;        // size of a culling sector for trees and stakes, three.js units
+const TERRAIN_PATCH = 30; // terrain squares per side of a culling patch
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -160,6 +162,21 @@ export function createFP(canvas) {
   const sceneObjs = []; const disposables = [];
   const add = (o) => { scene.add(o); sceneObjs.push(o); return o; };
   const keep = (x) => { disposables.push(x); return x; };
+  /* Things repeated across the map (trees, stakes) are split into sectors with their own bounds, so
+     whatever is outside the view is never sent to the GPU. items: [{ x, z, m: Matrix4, c: Color }] */
+  const addSectors = (geo, material, items) => {
+    const cells = new Map();
+    for (const it of items) {
+      const k = `${Math.floor(it.x / SECTOR)},${Math.floor(it.z / SECTOR)}`;
+      if (!cells.has(k)) cells.set(k, []);
+      cells.get(k).push(it);
+    }
+    for (const list of cells.values()) {
+      const mesh = add(new THREE.InstancedMesh(geo, material, list.length));
+      list.forEach((it, i) => { mesh.setMatrixAt(i, it.m); mesh.setColorAt(i, it.c); });
+      mesh.computeBoundingSphere(); mesh.matrixAutoUpdate = false;
+    }
+  };
   const dummy = new THREE.Object3D();
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
   const DOWN = new THREE.Vector3(0, -1, 0); const dir3 = new THREE.Vector3(); const tmpC = new THREE.Color(); const tmpC2 = new THREE.Color();
@@ -182,10 +199,11 @@ export function createFP(canvas) {
     applyRes();
   };
   let baseFov = 70; let fov = 70;
+  let fovSetting = 70;     // the player's field of view (Settings)
   const fitFov = () => {
     // portrait phones: widen the vertical angle so the horizontal view stays usable
     const a = camera.aspect;
-    baseFov = a >= 1.2 ? 70 : Math.min(96, (2 * Math.atan(Math.tan((62 * Math.PI) / 360) / a) * 180) / Math.PI);
+    baseFov = a >= 1.2 ? fovSetting : Math.min(fovSetting + 26, (2 * Math.atan(Math.tan(((fovSetting - 8) * Math.PI) / 360) / a) * 180) / Math.PI);
   };
 
   function unload() {
@@ -223,10 +241,11 @@ export function createFP(canvas) {
           gl_FragColor = vec4(c, 1.0);
           #include <colorspace_fragment>
         }`,
-      side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+      side: THREE.BackSide, depthWrite: false, fog: false,
     }));
     const sky = add(new THREE.Mesh(keep(new THREE.SphereGeometry(380, 20, 10)), skyMat));
-    sky.renderOrder = -10; sky.frustumCulled = false;
+    // drawn after the solid scene, so the sky shader only runs on the pixels of sky that are really visible
+    sky.renderOrder = 10; sky.frustumCulled = false;
 
     const starN = wx === 'clear' ? 420 : wx === 'fog' ? 60 : 0;
     let stars = null;
@@ -243,7 +262,7 @@ export function createFP(canvas) {
     let moonMesh = null; let moonGlow = null;
     if (wx !== 'rain') {
       moonMesh = add(new THREE.Mesh(keep(new THREE.CircleGeometry(9, 20)), reuse('moon', () => new THREE.MeshBasicMaterial({ fog: false, depthWrite: false }))));
-      moonMesh.renderOrder = -8; moonMesh.material.color.setHex(wx === 'fog' ? 0x8f9aae : 0xe6ecf7);
+      moonMesh.renderOrder = 11; moonMesh.material.color.setHex(wx === 'fog' ? 0x8f9aae : 0xe6ecf7);
       moonGlow = add(new THREE.Sprite(reuse('moonGlow', () => new THREE.SpriteMaterial({ map: glowTex, color: 0x6f86b8, blending: THREE.AdditiveBlending, fog: false, depthWrite: false }))));
       moonGlow.material.opacity = wx === 'fog' ? 0.9 : 0.55;
       moonGlow.scale.setScalar(wx === 'fog' ? 130 : 80); moonGlow.renderOrder = -8;
@@ -258,7 +277,7 @@ export function createFP(canvas) {
     }
     const hillGeo = keep(new THREE.BufferGeometry()); hillGeo.setAttribute('position', new THREE.Float32BufferAttribute(hp, 3)); hillGeo.setIndex(hi);
     const hillMat = reuse('hills', () => new THREE.MeshBasicMaterial({ color: 0x000000, fog: false, side: THREE.DoubleSide, depthWrite: false }));
-    const hills = add(new THREE.Mesh(hillGeo, hillMat)); hills.renderOrder = -7; hills.frustumCulled = false;
+    const hills = add(new THREE.Mesh(hillGeo, hillMat)); hills.renderOrder = 12; hills.frustumCulled = false;
 
     // ── terrain: vertex-coloured, flat-shaded ──
     const margin = 620; const gw = (WORLD.w + margin * 2) * S; const gh = (WORLD.h + margin * 2) * S;
@@ -280,7 +299,19 @@ export function createFP(canvas) {
       tcol[i * 3] = tmpC.r * sh; tcol[i * 3 + 1] = tmpC.g * sh; tcol[i * 3 + 2] = tmpC.b * sh;
     }
     tg.setAttribute('color', new THREE.BufferAttribute(tcol, 3)); tg.computeVertexNormals();
-    const terrain = add(new THREE.Mesh(tg, mat)); terrain.renderOrder = -5; terrain.frustumCulled = false;
+    // cut into patches that share one set of vertices, so the ground behind the camera is skipped
+    const tIndex = tg.index.array; const tBox = new THREE.Box3(); const tV = new THREE.Vector3();
+    for (let cz = 0; cz < segZ; cz += TERRAIN_PATCH) for (let cx = 0; cx < segX; cx += TERRAIN_PATCH) {
+      const ids = []; tBox.makeEmpty();
+      for (let iz = cz; iz < Math.min(cz + TERRAIN_PATCH, segZ); iz++) for (let ix = cx; ix < Math.min(cx + TERRAIN_PATCH, segX); ix++) {
+        const q = (iz * segX + ix) * 6;
+        for (let k = 0; k < 6; k++) { ids.push(tIndex[q + k]); tBox.expandByPoint(tV.fromBufferAttribute(tp, tIndex[q + k])); }
+      }
+      const pg = keep(new THREE.BufferGeometry());
+      pg.setAttribute('position', tp); pg.setAttribute('normal', tg.attributes.normal); pg.setAttribute('color', tg.attributes.color); pg.setIndex(ids);
+      pg.boundingSphere = tBox.getBoundingSphere(new THREE.Sphere());
+      const patch = add(new THREE.Mesh(pg, mat)); patch.renderOrder = -5; patch.matrixAutoUpdate = false;
+    }
 
     // rivers: dark water with a moonlit sheen
     const waterMat = reuse('water', () => new THREE.MeshLambertMaterial({ color: 0x1c2b3a, emissive: 0x0a1420, side: THREE.DoubleSide }));
@@ -390,13 +421,12 @@ export function createFP(canvas) {
     add(new THREE.Mesh(bankFlat, mat2)).frustumCulled = false;
 
     const stakeGeo = keep(build([part(cyl(0.14, 0.17, 1.9, 4, true), 0x6b4a2c, 0, 0.95, 0), part(cone(0.14, 0.4, 4, true), 0x8a6a44, 0, 2.1, 0)], 0.5));
-    const stakes = add(new THREE.InstancedMesh(stakeGeo, mat, stakeSpots.length)); stakes.frustumCulled = false;
-    stakeSpots.forEach(([x, y], i) => {
+    addSectors(stakeGeo, mat, stakeSpots.map(([x, y]) => {
       dummy.position.set(x * S + (rnd() - 0.5) * 0.05, hAt(x, y) + 1.0 + (rnd() - 0.5) * 0.12, y * S + (rnd() - 0.5) * 0.05);
       dummy.rotation.set((rnd() - 0.5) * 0.09, rnd() * 3, (rnd() - 0.5) * 0.09); dummy.scale.set(1, 0.92 + rnd() * 0.2, 1);
-      dummy.updateMatrix(); stakes.setMatrixAt(i, dummy.matrix);
-      stakes.setColorAt(i, tmpC.setScalar(0.75 + rnd() * 0.4));
-    });
+      dummy.updateMatrix();
+      return { x: x * S, z: y * S, m: dummy.matrix.clone(), c: new THREE.Color().setScalar(0.75 + rnd() * 0.4) };
+    }));
 
     // watchtowers
     const TH = 5.6;
@@ -473,11 +503,10 @@ export function createFP(canvas) {
       far.push({ x: w.cx + (po.x - w.cx) * k, y: w.cy + (po.y - w.cy) * k, s: 1 + rnd() * 0.9, rot: rnd() * 6 });
     }
     const allTrees = [...w.trees, ...far];
-    const treeMesh = add(new THREE.InstancedMesh(treeGeo, mat, allTrees.length)); treeMesh.frustumCulled = false;
-    allTrees.forEach((t, i) => {
+    addSectors(treeGeo, mat, allTrees.map((t) => {
       dummy.position.set(t.x * S, hAt(t.x, t.y) - 0.1, t.y * S); dummy.rotation.set(0, t.rot, 0); dummy.scale.set(t.s, 0.85 + t.s * 0.25, t.s); dummy.updateMatrix();
-      treeMesh.setMatrixAt(i, dummy.matrix); treeMesh.setColorAt(i, tmpC.setRGB(0.8 + rnd() * 0.35, 0.8 + rnd() * 0.4, 0.8 + rnd() * 0.3));
-    });
+      return { x: t.x * S, z: t.y * S, m: dummy.matrix.clone(), c: new THREE.Color().setRGB(0.8 + rnd() * 0.35, 0.8 + rnd() * 0.4, 0.8 + rnd() * 0.3) };
+    }));
 
     // lilia: hidden pits with a stake, shown once spotted
     const trapGeo = keep(build([part(cone(0.07, 0.5, 4), 0xc9a050, 0, 0.2, 0), part(cyl(0.34, 0.26, 0.1, 6), 0x1c140c, 0, 0.02, 0)], 0));
@@ -674,6 +703,7 @@ export function createFP(canvas) {
     camera.rotation.y = -view.yaw - Math.PI / 2 + Math.sin(t * 37) * sh;
     camera.rotation.x = view.pitch + Math.sin(t * 43 + 1) * sh * 0.8 - bob * 0.12;
     camera.rotation.z = sway * 0.35 + Math.sin(t * 29 + 2) * sh * 0.6;
+    if (view.fov !== undefined && view.fov !== fovSetting) { fovSetting = view.fov; fitFov(); fov = baseFov; camera.fov = fov; camera.updateProjectionMatrix(); }
     const wantFov = baseFov + (still ? 0 : gallop * 7);
     if (Math.abs(wantFov - fov) > 0.02) { fov += (wantFov - fov) * Math.min(1, dt * 5); camera.fov = fov; camera.updateProjectionMatrix(); }
 
@@ -812,6 +842,8 @@ export function createFP(canvas) {
     dispose() {
       unload();
       shared.forEach((d) => d.dispose());
+      // hand the GPU memory back now rather than at the next garbage collection (many players in a row on one screen)
+      try { renderer.forceContextLoss(); } catch { /* already lost */ }
       renderer.dispose();
     },
   };

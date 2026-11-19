@@ -1,5 +1,5 @@
 /*
- * La Percée — engine (no React, no three.js). Seeded world generation, simulation, and the 2D map view.
+ * La Percée — engine (no React, no three.js). Seeded world generation, simulation, and the minimap.
  *
  * History: before the Roman lines were finished, Vercingétorix sent his cavalry out by night
  * through the gaps in the works (Caesar, BG VII.71). Each "night" the ring is more complete.
@@ -223,8 +223,6 @@ export function generate(seedStr, night) {
 
   const startA = rnd() * TAU;
   const player = { x: cx + Math.cos(startA) * 60, y: cy + Math.sin(startA) * 36, vx: 0, vy: 0, stam: 100, stun: 0, face: startA, winded: false, rest: 0, speed: 0, galloping: false };
-  const grass = [];
-  for (let i = 0; i < 900; i++) grass.push([rnd() * WORLD.w, rnd() * WORLD.h, rnd()]);
 
   // trees: their own random stream, so the layout above never shifts. Trunks are solid.
   const trnd = mulberry32(hashSeed(`${seedStr}#${night}#trees`));
@@ -253,7 +251,7 @@ export function generate(seedStr, night) {
 
   const w = {
     seed: seedStr, night: n, cx, cy, inner, outer, towers, patrols, watchers: [...towers, ...patrols],
-    forests, trees, huts, rivers, traps, player, grass, weather, riders,
+    forests, trees, huts, rivers, traps, player, weather, riders,
     alarm: 0, time: 0, limit: TUNE.limit(n), state: 'play', reason: '',
     seen: 0, heard: 0, hold: 0, grace: TUNE.firstGrace, sighted: false, suspect: false, noisy: false,
     hidden: false, inTown: true, nearest: 9999, flash: 0, flash2: 0,
@@ -574,203 +572,7 @@ export function medalFor(w) {
   return 1;
 }
 
-/* ── 2D rendering (the secondary, top-down view) ────────────────── */
-let lightCanvas = null;
-
-export function render(ctx, w, view, colors, opts = {}) {
-  const { width: W, height: H } = view;
-  const scale = view.scale;
-  if (!(W > 0 && H > 0 && scale > 0)) return; // canvas not laid out yet
-  const p = w.player;
-  const camX = Math.max(W / 2 / scale, Math.min(WORLD.w - W / 2 / scale, p.x));
-  const camY = Math.max(H / 2 / scale, Math.min(WORLD.h - H / 2 / scale, p.y));
-  const toS = (x, y) => [(x - camX) * scale + W / 2, (y - camY) * scale + H / 2];
-
-  // dread shake (never under reduced motion)
-  const shake = opts.horror && !opts.still && w.alarm > 55 ? (w.alarm - 55) / 45 * 4 : 0;
-  ctx.save();
-  if (shake) ctx.translate(Math.sin(w.time * 31) * shake, Math.cos(w.time * 27) * shake);
-  ctx.fillStyle = colors.ground;
-  ctx.fillRect(-8, -8, W + 16, H + 16);
-  ctx.translate(W / 2, H / 2);
-  ctx.scale(scale, scale);
-  ctx.translate(-camX, -camY);
-
-  // grass speckle
-  ctx.fillStyle = colors.speck;
-  for (const [x, y, r] of w.grass) ctx.fillRect(x, y, 1.6 + r * 1.6, 1.6);
-
-  // rivers
-  ctx.strokeStyle = colors.river; ctx.lineWidth = 26; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  for (const pts of w.rivers) { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); }
-
-  // forests
-  ctx.fillStyle = colors.forest;
-  for (const blobs of w.forests) for (const b of blobs) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); }
-  ctx.fillStyle = colors.forestDot;
-  for (const t of w.trees) { ctx.beginPath(); ctx.arc(t.x, t.y, 4, 0, TAU); ctx.fill(); }
-
-  // town (Alésia) on its plateau
-  ctx.fillStyle = colors.plateau; ctx.strokeStyle = colors.gaul; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.ellipse(w.cx, w.cy, TOWN.rx, TOWN.ry, 0, 0, TAU); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = colors.forestDot;
-  for (const h of w.huts) { ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, TAU); ctx.fill(); }
-
-  // torch cones (drawn under walls); they redden when they have you
-  for (const t of w.watchers) {
-    const g = ctx.createRadialGradient(t.x, t.y, 4, t.x, t.y, t.range);
-    g.addColorStop(0, t.see ? colors.coneSee : colors.coneIn); g.addColorStop(1, colors.coneOut);
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.arc(t.x, t.y, t.range, t.dir - t.half, t.dir + t.half); ctx.closePath(); ctx.fill();
-  }
-
-  // walls
-  const drawRing = (ring, width) => {
-    ctx.strokeStyle = colors.wall; ctx.lineWidth = width; ctx.lineCap = 'butt';
-    ctx.beginPath();
-    for (const s of ring.segs) { ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); }
-    ctx.stroke();
-  };
-  drawRing(w.outer, 7); drawRing(w.inner, 6);
-  // the gaps (gold marks)
-  ctx.strokeStyle = colors.trap; ctx.lineWidth = 2;
-  for (const ring of [w.inner, w.outer]) for (const g of ring.gapPts) {
-    ctx.beginPath(); ctx.moveTo(g.x - 7, g.y); ctx.lineTo(g.x, g.y - 7); ctx.lineTo(g.x + 7, g.y); ctx.lineTo(g.x, g.y + 7); ctx.closePath(); ctx.stroke();
-  }
-
-  // traps: only those you have spotted
-  for (const tr of w.traps) {
-    if (!tr.seen && !opts.reveal) continue;
-    ctx.strokeStyle = tr.sprung ? colors.rome : colors.trap; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.arc(tr.x, tr.y, 5, 0, TAU); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(tr.x - 3, tr.y); ctx.lineTo(tr.x + 3, tr.y); ctx.moveTo(tr.x, tr.y - 3); ctx.lineTo(tr.x, tr.y + 3); ctx.stroke();
-  }
-
-  // towers (Rome = squares) and patrols
-  for (const t of w.towers) { ctx.fillStyle = colors.rome; ctx.fillRect(t.x - 7, t.y - 7, 14, 14); ctx.strokeStyle = colors.romeLight; ctx.lineWidth = 1.5; ctx.strokeRect(t.x - 7, t.y - 7, 14, 14); }
-  for (const q of w.patrols) { ctx.fillStyle = colors.romeLight; ctx.fillRect(q.x - 4, q.y - 4, 8, 8); }
-
-  // last place you were seen, and the stone
-  if (w.lastSeen.on) {
-    ctx.strokeStyle = colors.romeLight; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.arc(w.lastSeen.x, w.lastSeen.y, 12, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-  }
-  if (w.stone.on) {
-    const s = w.stone; const k = s.t;
-    ctx.fillStyle = colors.text; ctx.beginPath(); ctx.arc(s.x0 + (s.x1 - s.x0) * k, s.y0 + (s.y1 - s.y0) * k - Math.sin(k * Math.PI) * 26, 2.5, 0, TAU); ctx.fill();
-  }
-  if (w.ping.on) {
-    ctx.strokeStyle = colors.text; ctx.globalAlpha = Math.max(0, 1 - w.ping.t / 1.6); ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(w.ping.x, w.ping.y, 10 + w.ping.t * (opts.still ? 0 : 60), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
-  }
-
-  // hidden riders (a green ring), and your rallied riders trailing behind you
-  for (const r of w.riders) {
-    ctx.strokeStyle = colors.gaul; ctx.fillStyle = colors.gaul; ctx.lineWidth = 1.5;
-    if (r.rallied) { ctx.globalAlpha = 0.75; ctx.beginPath(); ctx.arc(r.x, r.y, 5, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
-    else { ctx.beginPath(); ctx.arc(r.x, r.y, 7, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(r.x, r.y, 2, 0, TAU); ctx.fill(); }
-  }
-
-  // the rider (Gaul = circle)
-  ctx.fillStyle = colors.gaul;
-  ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, TAU); ctx.fill();
-  ctx.strokeStyle = colors.text; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.restore();
-
-  // darkness with holes: moonlight around the rider, torchlight at towers
-  if (!lightCanvas) lightCanvas = document.createElement('canvas');
-  if (lightCanvas.width !== W || lightCanvas.height !== H) { lightCanvas.width = W; lightCanvas.height = H; }
-  const l = lightCanvas.getContext('2d');
-  l.globalCompositeOperation = 'source-over';
-  l.clearRect(0, 0, W, H);
-  l.fillStyle = colors.night; l.fillRect(0, 0, W, H);
-  l.globalCompositeOperation = 'destination-out';
-  const hole = (x, y, r, a = 1) => {
-    const [sx, sy] = toS(x, y);
-    if (sx < -r * scale || sy < -r * scale || sx > W + r * scale || sy > H + r * scale) return;
-    const g = l.createRadialGradient(sx, sy, 0, sx, sy, r * scale);
-    g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(1, 'rgba(0,0,0,0)');
-    l.fillStyle = g; l.beginPath(); l.arc(sx, sy, r * scale, 0, TAU); l.fill();
-  };
-  if (opts.horror) {
-    // Cry of Fear lantern: a small halo + a cone where you ride
-    hole(p.x, p.y, 60, 0.9);
-    const [px, py] = toS(p.x, p.y);
-    const R = 220 * scale; const half = 0.5;
-    const g = l.createRadialGradient(px, py, 0, px, py, R);
-    g.addColorStop(0, 'rgba(0,0,0,0.95)'); g.addColorStop(0.7, 'rgba(0,0,0,0.5)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    l.fillStyle = g;
-    l.beginPath(); l.moveTo(px, py); l.arc(px, py, R, p.face - half, p.face + half); l.closePath(); l.fill();
-  } else {
-    hole(p.x, p.y, 150, 0.95);
-  }
-  for (const t of w.watchers) hole(t.x + Math.cos(t.dir) * t.range * 0.5, t.y + Math.sin(t.dir) * t.range * 0.5, t.range * 0.75, 0.7);
-  for (const r of w.riders) if (!r.rallied) hole(r.x, r.y, 26, 0.6);
-  for (const ring of [w.inner, w.outer]) for (const g of ring.gapPts) hole(g.x, g.y, 24, 0.5);
-  hole(w.cx, w.cy, 150, 0.45);
-  ctx.drawImage(lightCanvas, 0, 0, W, H);
-
-  if (w.weather === 'rain') {
-    ctx.strokeStyle = 'rgba(200,210,220,0.18)'; ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i < 90; i++) {
-      const rx = (Math.random() * W); const ry = (Math.random() * H);
-      ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 12);
-    }
-    ctx.stroke();
-    if (w.flash > 0 && !opts.still) { ctx.fillStyle = `rgba(220,230,255,${w.flash * 0.3})`; ctx.fillRect(0, 0, W, H); }
-  } else if (w.weather === 'fog') {
-    ctx.fillStyle = 'rgba(120,110,100,0.12)'; ctx.fillRect(0, 0, W, H);
-  }
-  // dawn is coming
-  const dawn = clamp(1 - (w.limit - w.time) / TUNE.dawnWarn, 0, 1);
-  if (dawn > 0) { ctx.fillStyle = `rgba(238,138,69,${dawn * 0.14})`; ctx.fillRect(0, 0, W, H); }
-  if (opts.horror) horrorPass(ctx, w, W, H, opts);
-
-  // alarm vignette
-  if (w.alarm > 5) {
-    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(179,38,30,${(w.alarm / 100) * 0.55})`);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  }
-}
-
-/* ── Cry of Fear pass: film grain, throbbing fear vignette, chromatic edges ── */
-let grain = null;
-function makeGrain() {
-  const c = document.createElement('canvas'); c.width = 192; c.height = 192;
-  const g = c.getContext('2d'); const img = g.createImageData(192, 192);
-  for (let i = 0; i < img.data.length; i += 4) {
-    const v = Math.random() * 255;
-    img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v; img.data[i + 3] = Math.random() * 70;
-  }
-  g.putImageData(img, 0, 0);
-  return c;
-}
-function horrorPass(ctx, w, W, H, opts) {
-  if (!grain) grain = makeGrain();
-  ctx.save();
-  ctx.globalAlpha = 0.22;
-  const ox = opts.still ? 0 : Math.random() * 192; const oy = opts.still ? 0 : Math.random() * 192;
-  for (let x = -ox; x < W; x += 192) for (let y = -oy; y < H; y += 192) ctx.drawImage(grain, x, y);
-  ctx.restore();
-  const fear = w.alarm / 100;
-  const beat = opts.still ? 0 : Math.max(0, Math.sin(w.time * (4 + fear * 7))) ** 8 * fear;
-  const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * (0.22 - beat * 0.05), W / 2, H / 2, Math.max(W, H) * 0.62);
-  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${0.55 + fear * 0.3})`);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  if (fear > 0.4) {
-    const a = (fear - 0.4) * 0.5;
-    ctx.save(); ctx.globalCompositeOperation = 'screen';
-    const r = ctx.createLinearGradient(0, 0, W * 0.18, 0); r.addColorStop(0, `rgba(240,40,40,${a})`); r.addColorStop(1, 'rgba(240,40,40,0)');
-    ctx.fillStyle = r; ctx.fillRect(0, 0, W * 0.18, H);
-    const c = ctx.createLinearGradient(W, 0, W * 0.82, 0); c.addColorStop(0, `rgba(40,200,220,${a})`); c.addColorStop(1, 'rgba(40,200,220,0)');
-    ctx.fillStyle = c; ctx.fillRect(W * 0.82, 0, W * 0.18, H);
-    ctx.restore();
-  }
-}
-
-/* ── minimap (both views): a static layer drawn once per night + the moving things ── */
+/* ── minimap: a static layer drawn once per night + the moving things ── */
 export function createMinimap(canvas, w, colors) {
   const W = canvas.width; const H = canvas.height; const s = W / WORLD.w;
   const base = document.createElement('canvas'); base.width = W; base.height = H;
@@ -802,10 +604,8 @@ export function createMinimap(canvas, w, colors) {
     if (w.lastSeen.on) { ctx.strokeStyle = colors.romeLight; ctx.beginPath(); ctx.arc(w.lastSeen.x * s, w.lastSeen.y * s, dot * 1.4, 0, TAU); ctx.stroke(); }
     if (w.ping.on) { ctx.strokeStyle = colors.text; ctx.beginPath(); ctx.arc(w.ping.x * s, w.ping.y * s, dot * 1.2, 0, TAU); ctx.stroke(); }
     const px = w.player.x * s; const py = w.player.y * s;
-    if (yaw !== null) {
-      ctx.fillStyle = 'rgba(125,192,138,0.28)';
-      ctx.beginPath(); ctx.moveTo(px, py); ctx.arc(px, py, dot * 6, yaw - 0.6, yaw + 0.6); ctx.closePath(); ctx.fill();
-    }
+    ctx.fillStyle = 'rgba(125,192,138,0.28)';
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.arc(px, py, dot * 6, yaw - 0.6, yaw + 0.6); ctx.closePath(); ctx.fill();
     ctx.fillStyle = colors.gaul; ctx.beginPath(); ctx.arc(px, py, dot, 0, TAU); ctx.fill();
     ctx.strokeStyle = colors.text; ctx.lineWidth = 1; ctx.stroke();
   };

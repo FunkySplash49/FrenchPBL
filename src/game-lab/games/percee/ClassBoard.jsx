@@ -9,6 +9,7 @@ import { fetchClassBoard, sameName } from './classApi';
  */
 
 export const NIGHTS_MAX = 5;
+const FRESH_MS = 20000;
 export const fmtPts = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 export const fmtTime = (s) => (s == null ? '–' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`);
 const clock = (ms, lang) => new Date(ms).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -39,17 +40,26 @@ export function useClassBoard({ every = 15000, refreshKey = 0, paused = false } 
   const [state, setState] = useState('loading');
   const [at, setAt] = useState(0);
   const busy = useRef(false);
+  const again = useRef(false);      // asked again during a request: that answer is out of date, read once more
+  const freshUntil = useRef(0);     // just after a fresh read, the short-lived cached copy may be older than what is on screen
   const alive = useRef(true);
-  const refresh = useCallback(async () => {
-    if (busy.current) return;
+  /* refresh({ fresh: true }) skips the cache (after a save, a reset, or a click on Refresh).
+     One request at a time, and only the answer to the latest request is shown. */
+  const refresh = useCallback(async (opts) => {
+    if (opts?.fresh === true) freshUntil.current = Date.now() + FRESH_MS;
+    if (busy.current) { again.current = true; return; }
     busy.current = true;
-    const r = await fetchClassBoard();
+    let r;
+    do {
+      again.current = false;
+      r = await fetchClassBoard(Date.now() < freshUntil.current ? { fresh: true } : undefined);
+    } while (again.current && alive.current);
     busy.current = false;
     if (!alive.current) return;
     if (r.ok) { setRows(r.rows); setState('live'); setAt(Date.now()); } else setState('offline');
   }, []);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  useEffect(() => { if (!paused) refresh(); }, [refresh, refreshKey, paused]);
+  useEffect(() => { if (!paused) refresh(refreshKey ? { fresh: true } : undefined); }, [refresh, refreshKey, paused]);
   useEffect(() => {
     if (paused) return undefined;
     const id = setInterval(() => { if (!document.hidden) refresh(); }, every);
@@ -96,7 +106,7 @@ export function ClassBoard({ me, t, lang, refreshKey = 0, paused = false, fallba
     <section className="pc-board" aria-label={t(CB.title)}>
       <div className="pc-board-head">
         <h4 className="pc-board-title">{t(CB.title)}</h4>
-        <button type="button" className="gf-btn" onClick={refresh} aria-label={t(CB.refresh)}>
+        <button type="button" className="gf-btn" onClick={() => refresh({ fresh: true })} aria-label={t(CB.refresh)}>
           <RefreshCw size={16} aria-hidden="true" /> {t(CB.refresh)}
         </button>
       </div>

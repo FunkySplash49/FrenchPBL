@@ -40,7 +40,7 @@ function Board({ board, gk = null }) {
         </div>
         <div className="pcb-tools">
           <button type="button" className="gf-btn" onClick={cycle}>{lang === 'en' ? 'EN' : 'FR'}</button>
-          <button type="button" className="gf-btn" onClick={refresh}><RefreshCw size="1em" aria-hidden="true" /> {t(CB.refresh)}</button>
+          <button type="button" className="gf-btn" onClick={() => refresh({ fresh: true })}><RefreshCw size="1em" aria-hidden="true" /> {t(CB.refresh)}</button>
         </div>
         {gk && gk.panel}
       </header>

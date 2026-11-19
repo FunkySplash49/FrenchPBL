@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Share2, Zap, Pause, Play, Eye, EyeOff, Maximize, RotateCcw, LogOut, Circle, GripHorizontal, MoveHorizontal, Send, Check, WifiOff } from 'lucide-react';
+import { Volume2, VolumeX, Share, Share2, Zap, Pause, Play, Eye, EyeOff, Maximize, RotateCcw, LogOut, Circle, GripHorizontal, MoveHorizontal, Send, Check, WifiOff } from 'lucide-react';
 import { GameFrame, Card, Debrief, useT, haptic, usePersist } from '../kit';
-import { generate, step, render, createMinimap, throwStone, medalFor, nextGap, angDiff, NIGHTS, TUNE, WORLD } from './percee/engine';
+import { generate, step, createMinimap, throwStone, medalFor, nextGap, angDiff, NIGHTS, TUNE, WORLD } from './percee/engine';
 import { createInput } from './percee/input';
 import { makeAudio } from './percee/audio';
 import { loadBoard, saveBoard, addEntry, standings, todaySeed, randomSeed, fmtTime, scoreNight, scoreRun, POINTS } from './percee/board';
-import { submitClassScore, nameProblem, tidyName, loadPending, savePending } from './percee/classApi';
+import { startClassRun, submitClassScore, nameProblem, tidyName, loadPending, savePending } from './percee/classApi';
 import { ClassBoard } from './percee/ClassBoard';
 import { useLang } from '../../lib/lang';
 import { NIGHT_LINES, FACTS, HINTS, MEDALS, BIG_CONTROLS, BIG_LABELS, POINT_LABELS as PL, POINT_RULE } from './percee/text';
@@ -47,15 +47,47 @@ const mmUnit = (size = 1) => {
   return (dipPerMm / z) * size;
 };
 
+/* Safari on iPhone only lets videos go full screen, never a page, and every iOS browser shares that limit.
+   A game opened from the Home Screen does fill the whole screen, so that is what the player is shown there. */
+const canFullscreen = () => !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+const openedFromHomeScreen = () => window.navigator.standalone === true || window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+const appleTouchDevice = () => /iPhone|iPod|iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && (navigator.maxTouchPoints || 0) > 1);
+const needsHomeScreen = () => !openedFromHomeScreen() && (appleTouchDevice() || (touchCapable() && !canFullscreen()));
+
+function HomeScreenHelp({ t }) {
+  return (
+    <section className="pc-ios" aria-label={t({ fr: 'Plein écran sur Safari', en: 'Full screen on Safari' })}>
+      <p className="pc-ios-title"><Maximize size={16} aria-hidden="true" /> {t({ fr: 'Plein écran sur Safari', en: 'Full screen on Safari' })}</p>
+      <p>{t({ fr: 'Sur iPhone et iPad, Safari ne laisse pas un jeu passer en plein écran. Ajoutez-le en trois gestes :', en: 'On iPhone and iPad, Safari does not let a game go full screen. Add it in three steps instead:' })}</p>
+      <ol>
+        <li>{t({ fr: 'Touchez', en: 'Tap' })} <Share size={16} aria-label={t({ fr: 'Partager', en: 'Share' })} /> {t({ fr: 'Partager.', en: 'Share.' })}</li>
+        <li>{t({ fr: 'Choisissez « Sur l’écran d’accueil » (sous « Plus » si besoin).', en: 'Choose “Add to Home Screen” (under “More” if needed).' })}</li>
+        <li>{t({ fr: 'Ouvrez Alésia depuis votre écran d’accueil.', en: 'Open Alésia from your Home Screen.' })}</li>
+      </ol>
+    </section>
+  );
+}
+
+/* Look settings: a mouse and a finger each have their own speed (a touch screen can have both).
+   Saved under a new key so the 1.6× mouse default reaches everyone who never changed the old 1×;
+   a speed someone chose before is carried over. */
+const FOV_DEFAULT = 70;
+const SENS_MOUSE = 1.6;
+const SENS_TOUCH = 1;
+const firstSettings = () => {
+  let old = {};
+  try { old = JSON.parse(localStorage.getItem('percee-settings')) || {}; } catch { /* blocked or broken: defaults */ }
+  const saved = Number(old.sens);
+  return { sens: saved && saved !== 1 ? saved : SENS_MOUSE, touchSens: saved || SENS_TOUCH, invertY: !!old.invertY, fov: FOV_DEFAULT };
+};
+
 function cssColors(el) {
   const cs = getComputedStyle(el);
   const v = (n) => cs.getPropertyValue(n).trim();
   return {
-    ground: v('--ink-800'), speck: 'rgba(205,183,154,0.10)', river: 'rgba(120,140,150,0.35)',
-    forest: v('--ink-950'), forestDot: 'rgba(90,60,36,0.9)', plateau: 'rgba(47,107,58,0.30)',
+    river: 'rgba(120,140,150,0.35)', plateau: 'rgba(47,107,58,0.30)',
     gaul: v('--gaul-400'), rome: v('--rome-600'), romeLight: v('--rome-400'), wall: v('--rome-400'),
     trap: v('--gold-400'), text: v('--parchment-50'),
-    coneIn: 'rgba(245,178,107,0.42)', coneSee: 'rgba(240,106,90,0.55)', coneOut: 'rgba(245,178,107,0.0)', night: 'rgba(8,5,3,0.86)',
   };
 }
 
@@ -172,7 +204,8 @@ export default function Percee() {
   const setPhase = (p) => { phaseRef.current = p; setPhaseS(p); markDirty(); };
   const setMode = (m) => { modeRef.current = m; setModeS(m); markDirty(); };
 
-  const [seed, setSeed] = useState(() => readUrlSeed() || todaySeed());
+  const [seed, setSeed] = useState(() => readUrlSeed() || todaySeed());   // what the field shows: may be empty while typing
+  const mapSeed = seed.trim() || todaySeed();                             // the map actually played
   const [night, setNight] = useState(1);
   const [hud, setHud] = useState({ riders: 0, stones: TUNE.stones, status: 'calm', hidden: false, town: true, noisy: false, winded: false, secs: 180, weather: 'clear', hint: null });
   const [toast, setToast] = useState(null);
@@ -185,22 +218,31 @@ export default function Percee() {
   const [lockNote, setLockNote] = useState(false);
   const [confirm, setConfirm] = useState('');     // pause menu: 'new' | 'quit' once the button has been pressed a first time
   const [copied, setCopied] = useState('');
-  const [no3d, setNo3d] = useState(false);
+  const [gfxFail, setGfxFail] = useState(null);   // null | 'load' (the 3D code did not download) | 'webgl' (this browser cannot draw 3D)
+  const [homeHelp] = useState(needsHomeScreen);   // iPhone or iPad in the browser: explain how to get the full screen
+  const [fromHomeScreen] = useState(openedFromHomeScreen);
+  const [showHomeHelp, setShowHomeHelp] = useState(false);
+  const [mapBig, setMapBig] = useState(false);    // the minimap, enlarged in the middle of the screen
+  const mapPixels = useRef(300);                  // drawing width of the minimap: sharp at either size
+  const [oldScore, setOldScore] = useState(false); // a score waiting on this device was too old for the class board
   const [fpReady, setFpReady] = useState(() => !!fpModule);
   const [muted, setMuted] = usePersist('percee-muted', false);
   const [horror, setHorror] = usePersist('percee-horror', true);
-  const [view, setView] = usePersist('percee-view2', '3d');
   useEffect(() => {
-    if (view !== '3d' || fpModule) return undefined;
+    if (fpModule) return undefined;
     let on = true;
     loadFP().then(() => { if (on) setFpReady(true); }, (err) => {
       if (!on) return;
-      console.warn('[percee] 3D view could not be loaded, using the 2D map', err); setNo3d(true); setView('2d');
+      console.warn('[percee] the 3D view could not be loaded', err); setGfxFail('load'); fns.current.quit();
     });
     return () => { on = false; };
-  }, [view, setView]);
-  const [settings, setSettings] = usePersist('percee-settings', { sens: 1, invertY: false });
-  const [name, setName] = usePersist('percee-name', '');
+  }, []);
+  const [startSettings] = useState(firstSettings);
+  const [settings, setSettings] = usePersist('percee-settings2', startSettings);
+  const fovSetting = settings.fov ?? FOV_DEFAULT;
+  useEffect(() => { markDirty(); }, [fovSetting]); // shows at once behind the pause menu
+  const [savedName, setSavedName] = usePersist('percee-name', '');
+  const [sharedName, setSharedName] = useState('');      // big shared screen: never remembered, each player types their own
   const [send, setSend] = useState({ state: 'idle' });   // idle | sending | saved {rank,total,improved,best} | error {why}
   const [boardKey, setBoardKey] = useState(0);           // bumped after a save: the class board reloads at once
   const [board, setBoard] = useState(loadBoard);
@@ -210,10 +252,12 @@ export default function Percee() {
   const [bigUrl, setBigUrl] = useState(urlBig);                          // ?bigscreen wins until the setting is changed
   const [bigAutoOn, setBigAutoOn] = useState(bigAuto);
   const big = bigUrl !== null ? bigUrl : bigPref === 'on' ? true : bigPref === 'off' ? false : bigAutoOn;
+  const name = big ? sharedName : savedName;
+  const setName = big ? setSharedName : setSavedName;
   const [mm, setMm] = useState(() => mmUnit(bigSize));
   const [gfxLost, setGfxLost] = useState(null);                          // null | 'lost' | 'stuck' (the GPU dropped the 3D view)
   const live = useRef({});
-  live.current = { settings, muted, horror, view, kind, cooldown, seed, big, mm };
+  live.current = { settings, muted, horror, kind, cooldown, seed, big, mm };
   useEffect(() => {
     const on = () => { setBigAutoOn(bigAuto()); setMm(mmUnit(bigSize)); };
     on(); window.addEventListener('resize', on);
@@ -265,15 +309,21 @@ export default function Percee() {
     haptic('tick');
   };
   const newRun = (s = seed) => {
-    run.current = { time: 0, riders: 0, medals: [], tries: 0, pts: [] };
-    setResult(null); setSavedId(null); setCopied(''); setSend({ state: 'idle' });
+    // a browser can remember a failed download of this code: only a fresh page asks for it again
+    if (gfxFail === 'load') { window.location.reload(); return; }
+    setGfxFail(null); setOldScore(false);
+    const map = String(s).trim() || todaySeed();
+    if (map !== seed) setSeed(map);
+    // the class board's ticket for this run: asked for in the background, the game never waits for it
+    run.current = { time: 0, riders: 0, medals: [], tries: 0, pts: [], token: startClassRun() };
+    setResult(null); setSavedId(null); setCopied(''); setSend({ state: 'idle' }); setSharedName('');
     goFull();
-    startNight(1, s);
+    startNight(1, map);
   };
   const finishRun = (won) => {
     const r = run.current;
     audioRef.current?.stopLoops();
-    setResult({ nights: r.medals.length, riders: r.riders, time: r.time, medals: r.medals.slice(), tries: r.tries, pts: r.pts.slice(), points: scoreRun(r.pts, r.tries), won, seed });
+    setResult({ nights: r.medals.length, riders: r.riders, time: r.time, medals: r.medals.slice(), tries: r.tries, pts: r.pts.slice(), points: scoreRun(r.pts, r.tries), won, seed, token: r.token });
     setPhase('over');
   };
   const quit = () => {
@@ -287,10 +337,13 @@ export default function Percee() {
   const begin = (e) => {
     if (gfxLost) return;
     goFull();
+    // no ticket yet for this run: one more try now, while the clock of night 1 has not started
+    const r = run.current;
+    if (night === 1 && r.time === 0 && r.tries === 0) r.token = Promise.resolve(r.token).then((id) => id || startClassRun());
     const a = audio(); a.unlock(); a.stopLoops(); a.ambience(worldRef.current.weather, horror);
     const mouse = e ? (e.nativeEvent?.pointerType ? e.nativeEvent.pointerType === 'mouse' : live.current.kind === 'mouse') : false;
     setMode('run');
-    if (mouse && view === '3d') inputRef.current?.requestLock();
+    if (mouse) inputRef.current?.requestLock();
     canvasRef.current?.focus({ preventScroll: true });
   };
   const pause = (why) => {
@@ -309,16 +362,36 @@ export default function Percee() {
     audioRef.current?.resume();
     setMode('run');
     const mouse = e?.nativeEvent?.pointerType ? e.nativeEvent.pointerType === 'mouse' : live.current.kind === 'mouse';
-    if (mouse && live.current.view === '3d') inputRef.current?.requestLock();
+    if (mouse) inputRef.current?.requestLock();
     canvasRef.current?.focus({ preventScroll: true });
   };
+  /* The minimap: a tap (or M) enlarges it, the next touch anywhere shrinks it again. That touch still
+     counts for the game, so a player can steer or look at once instead of losing a moment to the map. */
+  const toggleMap = () => {
+    if (phaseRef.current !== 'play' || modeRef.current !== 'run') return;
+    haptic('light'); setMapBig((v) => !v);
+    canvasRef.current?.focus({ preventScroll: true });
+  };
+  useEffect(() => {
+    if (!mapBig) return undefined;
+    const close = () => setMapBig(false);
+    window.addEventListener('pointerdown', close, true);
+    window.addEventListener('resize', close);
+    return () => { window.removeEventListener('pointerdown', close, true); window.removeEventListener('resize', close); };
+  }, [mapBig]);
+  useEffect(() => { if (phase !== 'play' || mode !== 'run') setMapBig(false); }, [phase, mode]);
+  useLayoutEffect(() => {
+    const el = mmRef.current; if (!el) return;
+    // offsetWidth, not the on-screen box: the opening animation starts slightly smaller
+    const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+    mapPixels.current = mapBig ? Math.min(1200, Math.round(el.offsetWidth * zoom * Math.min(2, window.devicePixelRatio || 1))) : 300;
+    markDirty();
+  }, [mapBig]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const doThrow = () => {
     const w = worldRef.current; const inp = inputRef.current;
     if (!w || !inp || modeRef.current !== 'run' || phaseRef.current !== 'play') return;
-    const is3d = live.current.view === '3d';
-    const a = is3d ? inp.state.yaw : w.player.face;
-    const d = is3d ? 165 + inp.state.pitch * 230 : 170;
-    if (throwStone(w, a, d)) { audioRef.current?.throwS(); haptic('light'); if (tut.current.step === 4) tut.current.t = 99; }
+    if (throwStone(w, inp.state.yaw, 165 + inp.state.pitch * 230)) { audioRef.current?.throwS(); haptic('light'); if (tut.current.step === 4) tut.current.t = 99; }
     else if (w.stones <= 0) say(t({ fr: 'Plus de pierres pour cette nuit.', en: 'No stones left tonight.' }), 2200);
   };
 
@@ -354,30 +427,26 @@ export default function Percee() {
     }
   };
   const fns = useRef({});
-  fns.current = { pause, resume, doThrow, onEvents, say };
+  fns.current = { pause, resume, doThrow, onEvents, say, startNight, quit, toggleMap };
 
-  /* ── the frame loop: lives as long as the stage is on screen (and is rebuilt when the view changes) ── */
+  /* ── the frame loop: lives as long as the stage is on screen  ── */
   useEffect(() => {
     if (!active) return undefined;
     const canvas = canvasRef.current; const surface = surfaceRef.current;
     const colors = cssColors(surface);
-    const is3d = view === '3d';
-    let fp = null; let ctx = null;
-    if (is3d) {
-      if (!fpModule) return undefined; // still downloading: this effect runs again once it is here
-      try { fp = fpModule.createFP(canvas); } catch (err) { console.warn('[percee] 3D view unavailable, using the 2D map', err); setNo3d(true); setView('2d'); return undefined; }
-    } else ctx = canvas.getContext('2d');
+    if (!fpModule) return undefined; // still downloading: this effect runs again once it is here
+    let fp = null;
+    try { fp = fpModule.createFP(canvas); } catch (err) { console.warn('[percee] this browser cannot draw the 3D view', err); setGfxFail('webgl'); fns.current.quit(); return undefined; }
     fpRef.current = fp;
     const still = reducedMotion();
     const d = dom.current;
     const stepIn = { x: 0, y: 0, sprint: false, face: undefined };
     const viewOut = { yaw: 0, pitch: 0, still };
-    let loaded = null; let mini = null; let raf = 0; let last = performance.now(); let frameN = 0; let hudT = 0;
+    let loaded = null; let mini = null; let miniWorld = null; let raf = 0; let last = performance.now(); let frameN = 0; let hudT = 0;
     let lastBeat = 0; let lastHoof = 0; let nextHorn = 10; let lastWhisper = 0; let compW = 0; let lastFear = -1;
 
     const inp = createInput({
       surface, canvas, kind: live.current.kind,
-      mode: () => (is3d ? '3d' : '2d'),
       settings: () => live.current.settings,
       active: () => modeRef.current === 'run' && phaseRef.current === 'play',
       onKind: (k) => setKind(k === 'pad' ? 'mouse' : k),
@@ -385,6 +454,7 @@ export default function Percee() {
       // the note sits over the view: show it for a few seconds only (drag-to-look keeps working meanwhile)
       onLockError: () => { setLockNote(true); clearTimeout(noteTimer.current); noteTimer.current = setTimeout(() => setLockNote(false), 6000); },
       onThrow: () => fns.current.doThrow(),
+      onMap: () => fns.current.toggleMap(),
       onEscape: () => {
         if (phaseRef.current !== 'play') return false;
         if (modeRef.current === 'run') fns.current.pause('key');
@@ -412,13 +482,7 @@ export default function Percee() {
     let drawNow = null;
     const resize = () => {
       compW = d.comp ? d.comp.clientWidth : 0;
-      if (fp) fp.resize();
-      else {
-        const dpr = Math.min(2, window.devicePixelRatio || 1);
-        const bw = Math.round(canvas.clientWidth * dpr); const bh = Math.round(canvas.clientHeight * dpr);
-        if (canvas.width !== bw || canvas.height !== bh) { canvas.width = bw; canvas.height = bh; }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      }
+      fp.resize();
       if (drawNow) drawNow(); else markDirty();
     };
     const ro = new ResizeObserver(resize); ro.observe(canvas);
@@ -437,12 +501,16 @@ export default function Percee() {
       if (w !== loaded) {
         loaded = w;
         if (fp) fp.load(w, { horror: live.current.horror });
-        mini = mmRef.current ? createMinimap(mmRef.current, w, colors) : null;
         const g = nextGap(w);
-        // a fresh night faces the next gap; switching 3D / 2D mid-night keeps the rider's heading
+        // a fresh night faces the next gap; a view rebuilt mid-night keeps the rider's heading
         inp.reset(w.time > 0 ? w.player.face : Math.atan2(g.y - w.player.y, g.x - w.player.x));
         w.player.face = inp.state.yaw;
         nextHorn = 10; hudT = 0;
+      }
+      const mmEl = mmRef.current;
+      if (mmEl && (miniWorld !== w || mmEl.width !== mapPixels.current)) {
+        mmEl.width = mapPixels.current; mmEl.height = Math.round((mapPixels.current * 207) / 300);
+        mini = createMinimap(mmEl, w, colors); miniWorld = w; frameN = 0;
       }
       const s = inp.state; const p = w.player;
       if (running) {
@@ -450,10 +518,8 @@ export default function Percee() {
         let mx = s.moveX; let my = s.moveY; let gal = s.gallop;
         const hk = hook.current;
         if (hk.until > w.time) { mx = hk.x; my = hk.y; gal = hk.gallop; }
-        if (is3d) {
-          const c = Math.cos(s.yaw); const sn = Math.sin(s.yaw);
-          stepIn.x = c * my - sn * mx; stepIn.y = sn * my + c * mx; stepIn.face = s.yaw;
-        } else { stepIn.x = mx; stepIn.y = -my; stepIn.face = undefined; }
+        const c = Math.cos(s.yaw); const sn = Math.sin(s.yaw);
+        stepIn.x = c * my - sn * mx; stepIn.y = sn * my + c * mx; stepIn.face = s.yaw;
         stepIn.sprint = gal;
         const px = p.x; const py = p.y;
         const ev = step(w, stepIn, dt);
@@ -478,12 +544,8 @@ export default function Percee() {
       }
 
       // draw
-      if (fp) { viewOut.yaw = s.yaw; viewOut.pitch = s.pitch; fp.render(dt, viewOut); }
-      else {
-        const cw = canvas.clientWidth; const ch = canvas.clientHeight;
-        render(ctx, w, { width: cw, height: ch, scale: Math.max(cw / 760, ch / 560, 0.62) }, colors, { horror: live.current.horror, still });
-      }
-      if (mini && (frameN++ % 3 === 0 || !running)) mini(is3d ? s.yaw : null);
+      viewOut.yaw = s.yaw; viewOut.pitch = s.pitch; viewOut.fov = live.current.settings.fov ?? FOV_DEFAULT; fp.render(dt, viewOut);
+      if (mini && (frameN++ % 3 === 0 || !running)) mini(s.yaw);
 
       // HUD written straight to the DOM (bars, compass)
       if (d.alarm) d.alarm.style.transform = `scaleX(${w.alarm / 100})`;
@@ -491,7 +553,7 @@ export default function Percee() {
       // the red edge of fear is an opacity change only (no repaint of a full-screen gradient every frame)
       const fearK = Math.round(w.alarm) / 100;
       if (d.fear && fearK !== lastFear) { lastFear = fearK; d.fear.style.opacity = String(fearK); }
-      if (is3d && compW) {
+      if (compW) {
         for (let i = 0; i < 3; i++) {
           const r = w.riders[i]; const el = d[`r${i}`]; if (!el) continue;
           if (r.rallied) el.style.display = 'none'; else { el.style.display = ''; place(el, Math.atan2(r.y - p.y, r.x - p.x), s.yaw); }
@@ -553,7 +615,7 @@ export default function Percee() {
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('webglcontextrestored', onRestored);
 
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV || import.meta.env.VITE_PERCEE_TEST === '1') {
       // test hook, dev only — see the handoff notes for examples
       window.__percee = {
         get current() { return worldRef.current; },
@@ -563,7 +625,7 @@ export default function Percee() {
         state() {
           const w = worldRef.current; const s = inp.state;
           return {
-            phase: phaseRef.current, mode: modeRef.current, night: w.night, seed: w.seed, view: is3d ? '3d' : '2d', kind: s.kind, locked: s.locked,
+            phase: phaseRef.current, mode: modeRef.current, night: w.night, seed: w.seed, kind: s.kind, locked: s.locked,
             alarm: Math.round(w.alarm * 10) / 10, status: w.suspect ? 'suspect' : w.seen ? 'seen' : 'calm', worldState: w.state, time: Math.round(w.time * 10) / 10, limit: w.limit,
             player: { x: Math.round(w.player.x), y: Math.round(w.player.y), yaw: s.yaw, pitch: s.pitch, stam: Math.round(w.player.stam), speed: Math.round(w.player.speed), galloping: w.player.galloping },
             rallied: w.rallied, stones: w.stones, hidden: w.hidden, inTown: w.inTown, weather: w.weather, tutorial: tut.current.step,
@@ -577,7 +639,7 @@ export default function Percee() {
         teleport(x, y) { const p = worldRef.current.player; p.x = x; p.y = y; p.vx = p.vy = 0; markDirty(); },
         setYaw(a) { inp.state.yaw = a; markDirty(); }, setPitch(a) { inp.state.pitch = a; markDirty(); },
         lookAt(x, y) { const p = worldRef.current.player; inp.state.yaw = Math.atan2(y - p.y, x - p.x); markDirty(); },
-        /** hold a direction for `secs` of game time: x = right, y = forward (3D) / x = east, y = north (2D) */
+        /** hold a direction for `secs` of game time: x = right, y = forward */
         move(x, y, gallop = false, secs = 1) { hook.current = { x, y, gallop, until: worldRef.current.time + secs }; },
         detect(v) { worldRef.current.alarm = v; },
         rally(i = 0) { const w = worldRef.current; const r = w.riders[i]; this.teleport(r.hx, r.hy); },
@@ -589,6 +651,9 @@ export default function Percee() {
         restoreContext() { this.lc?.restoreContext(); },
         /** escape the night at once */
         finish() { const w = worldRef.current; const g = w.outer.gapPts[0]; const a = Math.atan2(g.y - w.cy, g.x - w.cx); this.teleport(Math.max(12, Math.min(WORLD.w - 12, g.x + Math.cos(a) * 90)), Math.max(12, Math.min(WORLD.h - 12, g.y + Math.sin(a) * 90))); },
+        /** dev: jump to a night, and time how long building its 3D scene takes */
+        night(n) { fns.current.startNight(n, live.current.seed); },
+        loadMs() { const t0 = performance.now(); fp?.load(worldRef.current, { horror: live.current.horror }); return performance.now() - t0; },
         fail(reason = 'seen') { const w = worldRef.current; if (reason === 'dawn') w.time = w.limit; else w.alarm = 100; },
       };
     }
@@ -604,9 +669,9 @@ export default function Percee() {
       clearTimeout(stuckT); wakeRef.current = null; setGfxLost(null);
       inp.dispose(); inputRef.current = null;
       fp?.dispose(); fpRef.current = null;
-      if (import.meta.env.DEV) delete window.__percee;
+      if (import.meta.env.DEV || import.meta.env.VITE_PERCEE_TEST === '1') delete window.__percee;
     };
-  }, [active, view, setView, fpReady]);
+  }, [active, fpReady]);
 
   // while the stage is up, the page behind must not scroll
   useEffect(() => {
@@ -627,12 +692,15 @@ export default function Percee() {
     setBoard(b); saveBoard(b); setSavedId(id);
   };
   const saveScore = async () => {
-    if (!result || send.state === 'sending' || send.state === 'saved') return;
+    if (!result || send.state === 'sending' || send.state === 'saved' || send.why === 'norun') return;
     const why = nameProblem(name);
     if (why) { setSend({ state: 'error', why }); return; }
     const payload = { name: tidyName(name), points: result.points, nights: result.nights, gold: golds(result), riders: result.riders, time: Math.round(result.time), seed: result.seed };
     setName(payload.name);
     setSend({ state: 'sending' });
+    payload.run = await result.token;
+    // no ticket (offline when the run began): the board cannot accept this run, now or later
+    if (!payload.run) { keepLocal(); haptic('miss'); setSend({ state: 'error', why: 'norun' }); return; }
     const r = await submitClassScore(payload);
     if (r.ok) {
       keepLocal(); haptic('success');
@@ -643,7 +711,7 @@ export default function Percee() {
       if (r.error === 'offline' || r.error === 'rate') {
         keepLocal();
         const p = loadPending(); if (!p || p.points <= payload.points || p.name !== payload.name) savePending(payload);
-      }
+      } else if (r.error === 'invalid' || r.error === 'run') keepLocal();
       haptic('miss');
       setSend({ state: 'error', why: r.error });
     }
@@ -651,13 +719,17 @@ export default function Percee() {
   // a score that could not be sent earlier goes out quietly the next time the game opens
   useEffect(() => {
     const p = loadPending(); if (!p) return;
-    submitClassScore(p).then((r) => { if (r.ok || r.error === 'name' || r.error === 'profanity' || r.error === 'invalid') { savePending(null); if (r.ok) setBoardKey((k) => k + 1); } });
+    submitClassScore(p).then((r) => {
+      if (r.ok || r.error === 'name' || r.error === 'profanity' || r.error === 'invalid' || r.error === 'run') savePending(null);
+      if (r.ok) setBoardKey((k) => k + 1);
+      if (r.error === 'run') setOldScore(true); // its ticket has expired; the run stays in this device's board
+    });
   }, []);
   const copy = async (what, text) => {
     try { await navigator.clipboard.writeText(text); setCopied(what); haptic('light'); } catch { setCopied(`${what}-fail`); }
   };
   const shareLink = async () => {
-    const url = new URL(window.location.href); url.searchParams.set('g', 'percee'); url.searchParams.set('seed', seed);
+    const url = new URL(window.location.href); url.searchParams.set('g', 'percee'); url.searchParams.set('seed', mapSeed);
     try {
       if (navigator.share && kind === 'touch') { await navigator.share({ title: 'La Percée — Alésia', url: url.toString() }); haptic('light'); } else await copy('link', url.toString());
     } catch { /* cancelled */ }
@@ -672,12 +744,10 @@ export default function Percee() {
   };
 
   const touch = kind === 'touch';
-  const is3d = view === '3d';
   const hintText = (() => {
     if (!hud.hint) return null;
     const h = HINTS[hud.hint];
     if (h.fr) return t(h);
-    if (!is3d && h.d) return t(h.d);
     if (touch && big && h.b) return t(h.b);
     return t(touch ? h.t : h.m);
   })();
@@ -688,12 +758,18 @@ export default function Percee() {
   const setRef = (k) => (el) => { dom.current[k] = el; };
   const d0 = () => dom.current;
 
+  const lookSens = touch ? settings.touchSens ?? SENS_TOUCH : settings.sens;   // the slider follows the pointer in use
   const SettingsRow = (
     <div className="pc-settings">
       <label className="pc-range">
         <span>{t({ fr: 'Sensibilité du regard', en: 'Look sensitivity' })}</span>
-        <input type="range" min="0.4" max="2.2" step="0.1" value={settings.sens} onChange={(e) => setSettings((s) => ({ ...s, sens: Number(e.target.value) }))} />
-        <output>{Number(settings.sens).toFixed(1)}×</output>
+        <input type="range" min="0.4" max="2.2" step="0.1" value={lookSens} onChange={(e) => setSettings((s) => ({ ...s, [touch ? 'touchSens' : 'sens']: Number(e.target.value) }))} />
+        <output>{Number(lookSens).toFixed(1)}×</output>
+      </label>
+      <label className="pc-range">
+        <span>{t({ fr: 'Champ de vision', en: 'Field of view' })}</span>
+        <input type="range" min="60" max="100" step="5" value={fovSetting} onChange={(e) => setSettings((s) => ({ ...s, fov: Number(e.target.value) }))} />
+        <output>{fovSetting}°</output>
       </label>
       <label className="pc-toggle"><input type="checkbox" checked={!!settings.invertY} onChange={(e) => setSettings((s) => ({ ...s, invertY: e.target.checked }))} /><span>{t({ fr: 'Inverser l’axe vertical', en: 'Invert vertical look' })}</span></label>
       <label className="pc-toggle"><input type="checkbox" checked={!muted} onChange={(e) => setMuted(!e.target.checked)} /><span>{t({ fr: 'Son', en: 'Sound' })}</span></label>
@@ -725,25 +801,26 @@ export default function Percee() {
           <li>{t({ fr: 'Pouce gauche : avancer', en: 'Left thumb: ride' })}</li>
           <li>{t({ fr: 'Pouce droit : regarder', en: 'Right thumb: look' })}</li>
           <li>{t({ fr: 'Éclair : galop · Rond : pierre', en: 'Lightning: gallop · Circle: stone' })}</li>
+          <li>{t({ fr: 'Touchez la mini-carte pour l’agrandir', en: 'Tap the minimap to enlarge it' })}</li>
         </>
       ) : (
         <>
           <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> {t({ fr: 'avancer', en: 'ride' })}</li>
-          <li>{is3d ? t({ fr: 'Souris : regarder (ou ← →)', en: 'Mouse: look (or ← →)' }) : t({ fr: 'Flèches : avancer', en: 'Arrows: ride' })}</li>
-          <li><kbd>{t({ fr: 'Maj', en: 'Shift' })}</kbd> {t({ fr: 'galop', en: 'gallop' })} · <kbd>E</kbd> {t({ fr: 'pierre', en: 'stone' })} · <kbd>{t({ fr: 'Échap', en: 'Esc' })}</kbd> {t({ fr: 'pause', en: 'pause' })}</li>
+          <li>{t({ fr: 'Souris : regarder (ou ← →)', en: 'Mouse: look (or ← →)' })}</li>
+          <li><kbd>{t({ fr: 'Maj', en: 'Shift' })}</kbd> {t({ fr: 'galop', en: 'gallop' })} · <kbd>E</kbd> {t({ fr: 'pierre', en: 'stone' })} · <kbd>M</kbd> {t({ fr: 'carte', en: 'map' })} · <kbd>{t({ fr: 'Échap', en: 'Esc' })}</kbd> {t({ fr: 'pause', en: 'pause' })}</li>
         </>
       )}
     </ul>
   );
 
   const stage = active && createPortal(
-    <div className={`pc-stage${horror ? ' is-horror' : ''}`} ref={stageRef} data-input={kind} data-view={view} data-mode={phase === 'play' ? mode : phase}
+    <div className={`pc-stage${horror ? ' is-horror' : ''}`} ref={stageRef} data-input={kind} data-mode={phase === 'play' ? mode : phase}
       data-big={big ? '1' : undefined} style={big ? { '--mm': `${mm}px`, '--bs-x': bigPos.x, '--bs-y': bigPos.y } : undefined}>
       <div className="pc-surface" ref={surfaceRef}>
-        <canvas key={view} ref={canvasRef} className="pc-canvas" tabIndex={0} role="application"
+        <canvas ref={canvasRef} className="pc-canvas" tabIndex={0} role="application"
           aria-label={t({ fr: 'Vue de nuit : chevauchez hors d’Alésia sans être vu', en: 'Night view: ride out of Alésia unseen' })} />
         <span className="pc-fx" ref={setRef('fx')} aria-hidden="true"><span className="pc-fear" ref={setRef('fear')} /></span>
-        {is3d && <span className="pc-cross" aria-hidden="true" />}
+        <span className="pc-cross" aria-hidden="true" />
 
         <div className="pc-hud">
           <div className="pc-hud-l">
@@ -767,22 +844,26 @@ export default function Percee() {
             </p>
           </div>
 
-          {is3d && (
-            <div className="pc-compass" ref={setRef('comp')} aria-hidden="true">
-              <span className="pc-mk is-north" ref={setRef('north')}>N</span>
-              <span className="pc-mk is-rider" ref={setRef('r0')} />
-              <span className="pc-mk is-rider" ref={setRef('r1')} />
-              <span className="pc-mk is-rider" ref={setRef('r2')} />
-              <span className="pc-mk is-gap" ref={setRef('gap')}><b ref={setRef('dist')} /></span>
-            </div>
-          )}
+          <div className="pc-compass" ref={setRef('comp')} aria-hidden="true">
+            <span className="pc-mk is-north" ref={setRef('north')}>N</span>
+            <span className="pc-mk is-rider" ref={setRef('r0')} />
+            <span className="pc-mk is-rider" ref={setRef('r1')} />
+            <span className="pc-mk is-rider" ref={setRef('r2')} />
+            <span className="pc-mk is-gap" ref={setRef('gap')}><b ref={setRef('dist')} /></span>
+          </div>
 
           <div className="pc-hud-r">
             <div className="pc-hud-r-top">
               <p className={`pc-dawn${hud.secs <= TUNE.dawnWarn ? ' is-late' : ''}`}><span>{t({ fr: 'Aube dans', en: 'Dawn in' })}</span> {fmtTime(hud.secs)}</p>
               <button type="button" className="pc-hbtn" onClick={() => pause('key')} aria-label={t({ fr: 'Pause', en: 'Pause' })}><Pause size={20} aria-hidden="true" /></button>
             </div>
-            <canvas ref={mmRef} className="pc-mm" width="300" height="207" aria-hidden="true" />
+            <span className="pc-mm-slot">
+              <button type="button" className={`pc-mm-btn${mapBig ? ' is-big' : ''}`} onClick={toggleMap} aria-expanded={mapBig}
+                aria-label={mapBig ? t({ fr: 'Réduire la carte', en: 'Shrink the map' }) : t({ fr: 'Agrandir la carte', en: 'Enlarge the map' })}>
+                <canvas ref={mmRef} className="pc-mm" width="300" height="207" aria-hidden="true" />
+                {!touch && !mapBig && <kbd className="pc-mm-key" aria-hidden="true">M</kbd>}
+              </button>
+            </span>
           </div>
         </div>
 
@@ -848,16 +929,14 @@ export default function Percee() {
                   <Circle size={18} aria-hidden="true" /><small>{hud.stones}</small></button>
                 <button type="button" className="pc-bs-btn is-pause" onClick={() => pause('key')} aria-label={t({ fr: 'Pause', en: 'Pause' })}><Pause size={16} aria-hidden="true" /></button>
               </div>
-              {is3d && (
-                <div className="pc-bs-ctl">
-                  <div className="pc-bs-look" data-bs="look" role="img" aria-label={t(BIG_LABELS.look)}><MoveHorizontal size={28} aria-hidden="true" /></div>
-                  <span className="pc-bs-lbl">{t(BIG_LABELS.look)}</span>
-                </div>
-              )}
+              <div className="pc-bs-ctl">
+                <div className="pc-bs-look" data-bs="look" role="img" aria-label={t(BIG_LABELS.look)}><MoveHorizontal size={28} aria-hidden="true" /></div>
+                <span className="pc-bs-lbl">{t(BIG_LABELS.look)}</span>
+              </div>
             </div>
           </div>
         )}
-        {lockNote && phase === 'play' && mode === 'run' && !touch && is3d && (
+        {lockNote && phase === 'play' && mode === 'run' && !touch && (
           <p className="pc-locknote">{t({ fr: 'Cliquez dans la vue pour capturer la souris, ou maintenez le clic et glissez pour regarder.', en: 'Click the view to capture the mouse, or hold the button and drag to look.' })}</p>
         )}
       </div>
@@ -870,10 +949,10 @@ export default function Percee() {
             <p className="pc-intro-line" style={{ animationDelay: '0.9s' }}>{t(NIGHT_LINES[night - 1])}</p>
             <p className="pc-intro-line" style={{ animationDelay: '1.65s' }}>{t({ fr: 'Ralliez trois cavaliers. Sortez avant l’aube.', en: 'Rally three riders. Get out before dawn.' })}</p>
             <button type="button" className="btn-primary pc-go" onClick={begin} autoFocus>
-              {touch ? t({ fr: 'Toucher pour partir', en: 'Tap to ride' }) : is3d ? t({ fr: 'Cliquer pour partir', en: 'Click to ride' }) : t({ fr: 'Partir', en: 'Ride' })}
+              {touch ? t({ fr: 'Toucher pour partir', en: 'Tap to ride' }) : t({ fr: 'Cliquer pour partir', en: 'Click to ride' })}
             </button>
             {Controls}
-            {is3d && <p className="pc-rotate">{t({ fr: 'Astuce : tenez le téléphone à l’horizontale pour voir plus large.', en: 'Tip: hold the phone sideways for a wider view.' })}</p>}
+            <p className="pc-rotate">{t({ fr: 'Astuce : tenez le téléphone à l’horizontale pour voir plus large.', en: 'Tip: hold the phone sideways for a wider view.' })}</p>
           </div>
         </div>
       )}
@@ -894,18 +973,17 @@ export default function Percee() {
             {gfxLost && (
               <p className="pc-menu-sub pc-gfxnote" role="status">
                 {t({ fr: 'L’affichage 3D a été interrompu par la carte graphique. Il revient tout seul dans un instant ; la partie est en pause, rien n’est perdu.', en: 'The graphics card interrupted the 3D view. It comes back by itself in a moment; the game is paused and nothing is lost.' })}
-                {gfxLost === 'stuck' && <> <button type="button" className="gf-btn" onClick={() => setView('2d')}>{t({ fr: 'Continuer sur la carte 2D', en: 'Continue on the 2D map' })}</button></>}
+                {gfxLost === 'stuck' && <> {t({ fr: 'Si rien ne revient, rechargez la page (la partie en cours sera perdue).', en: 'If nothing comes back, reload the page (the current run will be lost).' })} <button type="button" className="gf-btn" onClick={() => window.location.reload()}>{t({ fr: 'Recharger la page', en: 'Reload the page' })}</button></>}
               </p>
             )}
             <p className="pc-menu-sub" aria-live="polite">{confirm ? t({ fr: 'La partie en cours sera perdue. Appuyez encore une fois pour confirmer.', en: 'The current run will be lost. Press once more to confirm.' }) : t({ fr: 'Votre partie attend. Rien ne bouge pendant la pause.', en: 'Your run is waiting. Nothing moves while paused.' })}</p>
             {SettingsRow}
             <div className="gf-row">
-              <div className="pc-view" role="group" aria-label={t({ fr: 'Vue', en: 'View' })}>
-                <button type="button" className={`gf-btn${is3d ? ' is-on' : ''}`} aria-pressed={is3d} onClick={() => setView('3d')}>{t({ fr: '3D', en: '3D' })}</button>
-                <button type="button" className={`gf-btn${!is3d ? ' is-on' : ''}`} aria-pressed={!is3d} onClick={() => setView('2d')}>{t({ fr: 'Carte 2D', en: '2D map' })}</button>
-              </div>
-              <button type="button" className="gf-btn" onClick={toggleFull}><Maximize size={16} aria-hidden="true" /> {t({ fr: 'Plein écran', en: 'Full screen' })}</button>
+              {(homeHelp || canFullscreen()) && (
+                <button type="button" className="gf-btn" aria-expanded={homeHelp && !canFullscreen() ? showHomeHelp : undefined} onClick={() => (canFullscreen() ? toggleFull() : setShowHomeHelp((v) => !v))}><Maximize size={16} aria-hidden="true" /> {t({ fr: 'Plein écran', en: 'Full screen' })}</button>
+              )}
             </div>
+            {homeHelp && showHomeHelp && <HomeScreenHelp t={t} />}
             {Controls}
             <p className="pc-legend">
               <span><i className="pc-dot is-gaul" aria-hidden="true" />{t({ fr: 'cavalier à rallier', en: 'rider to rally' })}</span>
@@ -983,9 +1061,9 @@ export default function Percee() {
               <input id="pc-name" className="pc-name" value={name} maxLength={24} autoComplete="name" spellCheck="false" enterKeyHint="send"
                 placeholder={t({ fr: 'ex. Camille Martin', en: 'e.g. Camille Martin' })} disabled={send.state === 'sending' || send.state === 'saved'}
                 aria-invalid={send.state === 'error' && ['empty', 'long', 'chars', 'name', 'profanity'].includes(send.why) ? 'true' : undefined} aria-describedby="pc-send-msg"
-                onChange={(e) => { setName(e.target.value.slice(0, 24)); if (send.state === 'error') setSend({ state: 'idle' }); }} />
+                onChange={(e) => { setName(e.target.value.slice(0, 24)); if (send.state === 'error' && send.why !== 'norun') setSend({ state: 'idle' }); }} />
               {send.state !== 'saved' && (
-                <button type="submit" className="gf-btn is-on" disabled={send.state === 'sending' || !tidyName(name)}>
+                <button type="submit" className="gf-btn is-on" disabled={send.state === 'sending' || send.why === 'norun' || !tidyName(name)}>
                   <Send size={16} aria-hidden="true" /> {send.state === 'sending' ? t({ fr: 'Envoi…', en: 'Sending…' })
                     : send.state === 'error' && (send.why === 'offline' || send.why === 'rate') ? t({ fr: 'Réessayer', en: 'Try again' })
                       : t({ fr: 'Enregistrer au classement', en: 'Save to the class board' })}
@@ -1002,6 +1080,8 @@ export default function Percee() {
                 {send.state === 'error' && (send.why === 'chars' || send.why === 'name') && t({ fr: 'Lettres, chiffres, espaces, tirets et apostrophes seulement.', en: 'Letters, numbers, spaces, hyphens and apostrophes only.' })}
                 {send.state === 'error' && send.why === 'profanity' && t({ fr: 'Ce nom n’est pas accepté. Utilisez votre vrai nom.', en: 'That name is not accepted. Please use your real name.' })}
                 {send.state === 'error' && send.why === 'invalid' && t({ fr: 'Le classement a refusé ce score.', en: 'The class board refused this score.' })}
+                {send.state === 'error' && send.why === 'run' && t({ fr: 'Le classement a refusé ce score. Il reste enregistré sur cet appareil.', en: 'The class board refused this score. It stays saved on this device.' })}
+                {send.state === 'error' && send.why === 'norun' && <><WifiOff size={16} aria-hidden="true" /> {t({ fr: 'Pas de connexion au classement au début de cette partie : elle ne peut pas y figurer. Score gardé sur cet appareil. Relancez une partie en ligne pour entrer au classement.', en: 'There was no connection to the class board when this run began, so it cannot be added. Score kept on this device. Start a new run while online to join the board.' })}</>}
                 {send.state === 'error' && send.why === 'rate' && <><WifiOff size={16} aria-hidden="true" /> {t({ fr: 'Trop d’envois d’un coup. Score gardé sur cet appareil : réessayez dans une minute.', en: 'Too many saves at once. Score kept on this device: try again in a minute.' })}</>}
                 {send.state === 'error' && send.why === 'offline' && <><WifiOff size={16} aria-hidden="true" /> {t({ fr: 'Classement injoignable. Score gardé sur cet appareil : réessayez, ou il partira tout seul à la prochaine ouverture du jeu.', en: 'The class board cannot be reached. Score kept on this device: try again, or it will be sent by itself next time the game opens.' })}</>}
               </p>
@@ -1038,6 +1118,7 @@ export default function Percee() {
     >
       <div className="pc-home">
         <Card title={{ fr: 'Nuit d’août 52 av. J.-C.', en: 'An August night, 52 BC' }} action={{ fr: 'Partir dans la nuit', en: 'Ride into the night' }} onAction={() => newRun()}>
+          {!fromHomeScreen && <HomeScreenHelp t={t} />}
           <p>{t({ fr: 'Les Romains n’ont pas fini leurs murs. Vercingétorix vous envoie, à cheval, chercher du secours dans toute la Gaule. Sortez d’Alésia, ralliez trois cavaliers cachés dans les bois et franchissez les deux lignes par une brèche avant l’aube, sans vous faire voir.', en: 'The Romans have not finished their walls. Vercingétorix sends you, on horseback, to raise all of Gaul. Leave Alésia, rally three riders hidden in the woods and slip through a gap in both lines before dawn, without being seen.' })}</p>
           <ul className="pc-rules">
             <li><i className="pc-dot is-gold" aria-hidden="true" />{t(POINT_RULE)}</li>
@@ -1048,26 +1129,29 @@ export default function Percee() {
           </ul>
           <div className="pc-seed">
             <label htmlFor="pc-seed">{t({ fr: 'Code de la carte', en: 'Map seed' })}</label>
-            <input id="pc-seed" value={seed} maxLength={24} onChange={(e) => setSeed(e.target.value.trim() || todaySeed())} spellCheck="false" autoComplete="off" />
-            <button type="button" className={`gf-btn${seed === todaySeed() ? ' is-on' : ''}`} onClick={() => setSeed(todaySeed())}>{t({ fr: 'Carte du jour', en: 'Daily map' })}</button>
+            <input id="pc-seed" value={seed} maxLength={24} onChange={(e) => setSeed(e.target.value)} onBlur={() => setSeed(mapSeed)} spellCheck="false" autoComplete="off" />
+            <button type="button" className={`gf-btn${mapSeed === todaySeed() ? ' is-on' : ''}`} onClick={() => setSeed(todaySeed())}>{t({ fr: 'Carte du jour', en: 'Daily map' })}</button>
             <button type="button" className="gf-btn" onClick={() => setSeed(randomSeed())}>{t({ fr: 'Au hasard', en: 'Random' })}</button>
             <button type="button" className="gf-btn" onClick={shareLink}><Share2 size={16} aria-hidden="true" /> {copied === 'link' ? t({ fr: 'Lien copié', en: 'Link copied' }) : t({ fr: 'Partager', en: 'Share' })}</button>
           </div>
-          <p className="pc-note">{seed === todaySeed()
+          <p className="pc-note">{mapSeed === todaySeed()
             ? t({ fr: 'Carte du jour : la même pour toute la classe.', en: 'Daily map: the same for the whole class.' })
             : t({ fr: 'Carte d’entraînement : une autre carte, même classement.', en: 'Practice map: a different map, same class board.' })}</p>
-          <div className="pc-view" role="group" aria-label={t({ fr: 'Vue', en: 'View' })}>
-            <button type="button" className={`gf-btn${is3d ? ' is-on' : ''}`} aria-pressed={is3d} onClick={() => { setNo3d(false); setView('3d'); }}>{t({ fr: 'Vue subjective 3D', en: 'First-person 3D' })}</button>
-            <button type="button" className={`gf-btn${!is3d ? ' is-on' : ''}`} aria-pressed={!is3d} onClick={() => setView('2d')}>{t({ fr: 'Carte 2D (plus simple)', en: '2D map (simpler)' })}</button>
-          </div>
-          {no3d && <p className="pc-note">{t({ fr: 'La 3D n’est pas disponible sur cet appareil : la carte 2D est utilisée.', en: '3D is not available on this device: the 2D map is used.' })}</p>}
+          {gfxFail === 'load' && (
+            <p className="pc-note" role="alert">
+              {t({ fr: 'Le jeu 3D n’a pas pu être téléchargé. Vérifiez la connexion, puis rechargez la page.', en: 'The 3D game could not be downloaded. Check the connection, then reload the page.' })}{' '}
+              <button type="button" className="gf-btn" onClick={() => window.location.reload()}>{t({ fr: 'Recharger la page', en: 'Reload the page' })}</button>
+            </p>
+          )}
+          {gfxFail === 'webgl' && <p className="pc-note" role="alert">{t({ fr: 'Ce navigateur ne peut pas afficher le jeu en 3D. Essayez une version à jour de Chrome, Edge, Firefox ou Safari.', en: 'This browser cannot display the 3D game. Try an up-to-date Chrome, Edge, Firefox or Safari.' })}</p>}
+          {oldScore && <p className="pc-note" role="status">{t({ fr: 'Un score en attente était trop ancien pour être envoyé au classement de la classe. Il reste enregistré sur cet appareil.', en: 'A waiting score was too old to send to the class board. It stays saved on this device.' })}</p>}
           <label className="pc-toggle">
             <input type="checkbox" checked={horror} onChange={(e) => setHorror(e.target.checked)} />
-            <span>{t({ fr: 'Mode « Effroi » : nuit plus noire, lanterne, grain, chuchotements, cœur qui bat (déconseillé aux plus sensibles)', en: '“Dread” mode: darker night, lantern, grain, whispers, heartbeat (not for the faint-hearted)' })}</span>
+            <span>{t({ fr: 'Mode « Effroi » : nuit plus noire, lanterne, grain, chuchotements, cœur qui bat', en: '“Dread” mode: darker night, lantern, grain, whispers, heartbeat' })}</span>
           </label>
           {SettingsRow}
           <ClassBoard me={name} t={t} lang={lang} refreshKey={boardKey} paused={active} onScreenHref="?g=percee&board"
-            fallback={<LocalBoard board={board} seed={seed} name={name} highlight={null} t={t} />} />
+            fallback={<LocalBoard board={board} seed={mapSeed} name={name} highlight={null} t={t} />} />
         </Card>
       </div>
       {stage}

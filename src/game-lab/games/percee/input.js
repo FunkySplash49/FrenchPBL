@@ -4,7 +4,7 @@
  *  mouse     pointer lock (click the view) → move the mouse to look; falls back to drag-to-look
  *            when the lock is refused or unsupported. Right click = throw a stone.
  *  keyboard  W A S D by physical position (so Z Q S D on a French keyboard) or ↑ ↓ to ride,
- *            ← → to turn (3D) / move (2D), Shift or Space = gallop, E / F = stone, Esc / P = pause.
+ *            ← → to turn, Shift or Space = gallop, E / F = stone, M = map, Esc / P = pause.
  *  touch     left part of the view = a joystick that appears under the thumb,
  *            the rest = drag to look. Decided per event from PointerEvent.pointerType, so a
  *            touch monitor with a mouse plugged in works with both at once.
@@ -46,10 +46,11 @@ export function createInput(o) {
   const cfg = () => o.settings();
   const zoom = () => { const r = surface.getBoundingClientRect(); return { r, z: surface.offsetWidth ? r.width / surface.offsetWidth : 1 }; };
   const setKind = (k) => { if (s.kind !== k) { s.kind = k; o.onKind?.(k); } };
-  const look = (dx, dy, k) => {
-    const c = cfg();
-    s.yaw += dx * k * c.sens;
-    s.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, s.pitch - dy * k * c.sens * (c.invertY ? -1 : 1)));
+  // a mouse and a finger have their own speed: a touch screen can have both at once
+  const look = (dx, dy, k, finger = false) => {
+    const c = cfg(); const sens = finger ? c.touchSens ?? 1 : c.sens;
+    s.yaw += dx * k * sens;
+    s.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, s.pitch - dy * k * sens * (c.invertY ? -1 : 1)));
   };
 
   /* ── pointer lock ── */
@@ -58,7 +59,7 @@ export function createInput(o) {
   let pending = false;
   const settle = () => { pending = false; };
   function requestLock() {
-    if (!lockable || o.mode() !== '3d' || pending || document.pointerLockElement === canvas) return false;
+    if (!lockable || pending || document.pointerLockElement === canvas) return false;
     pending = true;
     try {
       const p = canvas.requestPointerLock({ unadjustedMovement: true });
@@ -88,7 +89,7 @@ export function createInput(o) {
   // Safari can refuse a lock asked from pointerdown (not a "user activation" there): ask again on click
   const onClick = (e) => {
     if (e.pointerType && e.pointerType !== 'mouse') return;
-    if (s.locked || e.button !== 0 || !o.active() || o.mode() !== '3d') return;
+    if (s.locked || e.button !== 0 || !o.active()) return;
     if (e.target.closest && e.target.closest(UI)) return;
     requestLock();
   };
@@ -107,7 +108,6 @@ export function createInput(o) {
     if (e.pointerType === 'mouse') {
       if (e.button === 2) { o.onThrow?.(); return; }
       if (e.button !== 0) return;
-      if (o.mode() !== '3d') return;
       if (!s.locked) {
         requestLock();
         dragId = e.pointerId; dragX = e.clientX; dragY = e.clientY; // drag-to-look until (or instead of) the lock
@@ -125,23 +125,20 @@ export function createInput(o) {
         joyId = e.pointerId; joyX = b.left + b.width / 2; joyY = b.top + b.height / 2; jx = 0; jy = 0;
         joyBig = true; joyR = b.width * 0.25; joyRing = b.width * 0.37;
         moveJoy(e);
-      } else if (kindOf !== 'stick' && lookId === -1 && o.mode() === '3d') {
+      } else if (kindOf !== 'stick' && lookId === -1) {
         lookId = e.pointerId; lookX = e.clientX; lookY = e.clientY;
         lookGain = (kindOf === 'look' ? PAD_GAIN : FREE_GAIN) / Math.max(0.1, o.mm() * z); // per client px
-      } else if (!zone && o.mode() !== '3d' && joyId === -1) {
-        joyId = e.pointerId; joyX = e.clientX; joyY = e.clientY; jx = 0; jy = 0; joyBig = false;
-        moveJoy(e);
       } else return;
       try { surface.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
       e.preventDefault();
       return;
     }
-    const left = o.mode() !== '3d' || e.clientX - r.left < r.width * 0.45;
+    const left = e.clientX - r.left < r.width * 0.45;
     if (left && joyId === -1) {
       joyBig = false;
       joyId = e.pointerId; joyX = e.clientX; joyY = e.clientY; jx = 0; jy = 0;
       moveJoy(e);
-    } else if (lookId === -1 && o.mode() === '3d') {
+    } else if (lookId === -1) {
       lookId = e.pointerId; lookX = e.clientX; lookY = e.clientY; lookGain = 2.6 / Math.min(r.width, r.height);
     } else return;
     try { surface.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
@@ -175,7 +172,7 @@ export function createInput(o) {
     }
     if (e.pointerId === joyId) moveJoy(e);
     else if (e.pointerId === lookId) {
-      if (o.active()) look(e.clientX - lookX, e.clientY - lookY, lookGain);
+      if (o.active()) look(e.clientX - lookX, e.clientY - lookY, lookGain, true);
       lookX = e.clientX; lookY = e.clientY;
     }
   };
@@ -199,7 +196,9 @@ export function createInput(o) {
       if (o.onEscape?.(e.code) !== false) { e.preventDefault(); e.stopPropagation(); }
       return;
     }
-    if (!o.active() || !GAME_KEYS.has(e.code)) return;
+    if (!o.active()) return;
+    if ((e.key === 'm' || e.key === 'M') && !e.repeat) { e.preventDefault(); e.stopPropagation(); o.onMap?.(); return; } // by letter: M sits elsewhere on a French keyboard
+    if (!GAME_KEYS.has(e.code)) return;
     e.preventDefault(); e.stopPropagation();
     if (!e.repeat && (e.code === 'KeyE' || e.code === 'KeyF')) o.onThrow?.();
     keys[e.code] = true;
@@ -241,16 +240,16 @@ export function createInput(o) {
     exitLock,
     setGallop(v) { galBtn = v; },
     /** touch look from a HUD button the thumb is resting on (px) */
-    lookBy(dx, dy) { if (o.active()) { const { r, z } = zoom(); look(dx, dy, o.big?.() ? FREE_GAIN / Math.max(0.1, o.mm() * z) : 2.6 / Math.min(r.width, r.height)); } },
+    lookBy(dx, dy) { if (o.active()) { const { r, z } = zoom(); look(dx, dy, o.big?.() ? FREE_GAIN / Math.max(0.1, o.mm() * z) : 2.6 / Math.min(r.width, r.height), true); } },
     reset(yaw) { s.yaw = yaw; s.pitch = -0.06; clearKeys(); endJoy(); o.onJoy?.(false, 0, 0, 0, 0); lookId = dragId = -1; galBtn = false; },
     release() { clearKeys(); if (joyId !== -1) endJoy(); lookId = dragId = -1; galBtn = false; s.moveX = s.moveY = 0; s.gallop = false; },
     /** once per frame: fold keys, joystick and gamepad into moveX (right) / moveY (forward) / gallop */
     frame(dt) {
-      const k = keys; const is3d = o.mode() === '3d';
+      const k = keys;
       let mx = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
       let my = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
       const lr = (k.ArrowRight ? 1 : 0) - (k.ArrowLeft ? 1 : 0);
-      if (is3d) s.yaw += lr * TURN_KEYS * dt; else mx += lr;
+      s.yaw += lr * TURN_KEYS * dt;
       let gal = !!(k.ShiftLeft || k.ShiftRight || k.Space) || galBtn || joyGallop;
       mx += jx; my -= jy;
       if (hasPad && navigator.getGamepads) {
@@ -260,7 +259,7 @@ export function createInput(o) {
           const ax = axis(pad.axes[0] || 0); const ay = axis(pad.axes[1] || 0); const rx = axis(pad.axes[2] || 0); const ry = axis(pad.axes[3] || 0);
           if (ax || ay || rx || ry) setKind('pad');
           mx += ax; my -= ay;
-          if (is3d) { const c = cfg(); s.yaw += rx * 2.4 * c.sens * dt; s.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, s.pitch - ry * 1.5 * c.sens * dt * (c.invertY ? -1 : 1))); }
+          const c = cfg(); s.yaw += rx * 2.4 * c.sens * dt; s.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, s.pitch - ry * 1.5 * c.sens * dt * (c.invertY ? -1 : 1)));
           const b = pad.buttons; const pressed = (i) => !!(b[i] && b[i].pressed);
           padGallop = pressed(0) || pressed(7) || pressed(10); gal = gal || padGallop;
           const th = pressed(2) || pressed(1); if (th && !padThrow) o.onThrow?.(); padThrow = th;

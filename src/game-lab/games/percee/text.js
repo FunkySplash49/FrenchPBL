@@ -33,7 +33,6 @@ export const HINTS = {
     m: { fr: 'Bougez la souris pour regarder. W / Z ou ↑ pour avancer.', en: 'Move the mouse to look. W or ↑ to ride forward.' },
     t: { fr: 'Pouce gauche : avancer. Pouce droit : regarder autour.', en: 'Left thumb: ride. Right thumb: look around.' },
     b: { fr: 'Main gauche sur le manche pour avancer. Main droite : glissez sur le pavé pour regarder.', en: 'Left hand on the stick to ride. Right hand: slide on the pad to look around.' },
-    d: { fr: 'Flèches ou ZQSD / WASD pour avancer sur la carte.', en: 'Arrow keys or WASD to ride across the map.' },
   },
   light: { fr: 'Restez hors des faisceaux. L’œil se remplit quand une sentinelle vous voit.', en: 'Stay out of the beams. The eye fills while a sentry can see you.' },
   rider: { fr: 'Colonne verte : un cavalier caché. Allez le rallier.', en: 'Green column: a hidden rider. Go and rally them.' },
@@ -55,7 +54,7 @@ export const BIG_CONTROLS = [
   { fr: 'Tout se joue sur la console en bas de l’écran. Faites-la glisser par sa poignée pour l’avoir devant vous.', en: 'Everything is on the console at the bottom of the screen. Slide it by its handle so it sits in front of you.' },
   { fr: 'Main gauche : le manche pour avancer. Poussez jusqu’à l’anneau doré pour galoper.', en: 'Left hand: the stick to ride. Push it out to the gold ring to gallop.' },
   { fr: 'Main droite : glissez sur le pavé pour regarder (ou n’importe où sur l’image).', en: 'Right hand: slide on the pad to look around (or anywhere on the picture).' },
-  { fr: 'Au milieu : galop, pierre, pause.', en: 'In the middle: gallop, stone, pause.' },
+  { fr: 'Au milieu : galop, pierre, pause. Touchez la mini-carte pour l’agrandir.', en: 'In the middle: gallop, stone, pause. Tap the minimap to enlarge it.' },
 ];
 
 /* console labels */

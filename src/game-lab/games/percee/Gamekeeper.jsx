@@ -84,7 +84,7 @@ export function useGamekeeper({ rows, refresh, t }) {
     setBusy(true);
     const r = await adminBoard(key, { all: true });
     setBusy(false); setArmAll(false);
-    if (r.ok) { setMsg({ tone: 'ok', text: t(doneAll(Number(r.removed) || 0)) }); refresh(); } else fail(r.error);
+    if (r.ok) { setMsg({ tone: 'ok', text: t(doneAll(Number(r.removed) || 0)) }); refresh({ fresh: true }); } else fail(r.error);
   };
   const removeRow = async (name) => {
     clearTimeout(armTimer.current);
@@ -92,7 +92,7 @@ export function useGamekeeper({ rows, refresh, t }) {
     setArmRow(null); setBusy(true);
     const r = await adminBoard(key, { name });
     setBusy(false);
-    if (r.ok) { setMsg({ tone: 'ok', text: t(doneOne(name, r.removed)) }); refresh(); } else fail(r.error);
+    if (r.ok) { setMsg({ tone: 'ok', text: t(doneOne(name, r.removed)) }); refresh({ fresh: true }); } else fail(r.error);
   };
 
   const rowAction = key ? (row) => (

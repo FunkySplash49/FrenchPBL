@@ -21,7 +21,7 @@ Files: `games/Percee.jsx` + `Percee.css` (React shell), `games/percee/*` (engine
 input, audio, boards), `games/PerceeBoard.jsx` (the full-screen board), `kit.jsx` (frame, cards,
 `useT`, `usePersist`). The three.js view (`percee/fp3d.js` + three, about 135 kB gzipped) is a
 chunk of its own: the menu paints without it and it is fetched in the background as soon as the
-menu is up (players on the 2D map never download it).
+menu is up.
 
 ## Putting a game in the story
 
