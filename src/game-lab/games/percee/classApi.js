@@ -29,22 +29,42 @@ async function call(init, query = '') {
   } finally { clearTimeout(timer); }
 }
 
-/** → { ok: true, rows } or { ok: false } (offline, no API, store down) */
-export async function fetchClassBoard() {
+/** → { ok: true, rows } or { ok: false } (offline, no API, store down).
+    `fresh`: skip the few seconds of CDN cache (right after a save or a reset) */
+export async function fetchClassBoard({ fresh = false } = {}) {
   try {
-    const { status, body } = await call({ method: 'GET' });
+    const { status, body } = await call({ method: 'GET' }, fresh ? `?fresh=${Date.now()}` : '');
     if (status === 200 && Array.isArray(body)) return { ok: true, rows: body };
   } catch { /* offline or timed out */ }
   return { ok: false };
 }
 
-/** payload { name, points, nights, gold, riders, time, seed }
-    → { ok: true, rank, total, improved, best } | { ok: false, error: 'name' | 'profanity' | 'rate' | 'invalid' | 'offline' } */
+const RUN_RETRY_MS = [1000, 3000, 8000];
+const sleep = (ms) => new Promise((done) => { setTimeout(done, ms); });
+
+/** asks for this run's one-use ticket (sent back with the score) → its id, or null if the board cannot give one.
+    A network failure, 429 or 503 is tried again a little later: the game keeps running meanwhile. */
+export async function startClassRun(pause = sleep) {
+  for (let attempt = 0; ; attempt++) {
+    let again = true;
+    try {
+      const { status, body } = await call({ method: 'POST' }, '?run=start');
+      if (status === 200 && typeof body?.run === 'string') return body.run;
+      again = status === 429 || status === 503;
+    } catch { /* offline or timed out */ }
+    if (!again || attempt >= RUN_RETRY_MS.length) return null;
+    await pause(RUN_RETRY_MS[attempt]);
+  }
+}
+
+/** payload { name, points, nights, gold, riders, time, run, seed }
+    → { ok: true, rank, total, improved, best } | { ok: false, error: 'name' | 'profanity' | 'run' | 'rate' | 'invalid' | 'offline' }
+    ('run': the ticket is missing, expired or already used for another score, so this score can never be accepted) */
 export async function submitClassScore(payload) {
   try {
     const { status, body } = await call({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (status === 200 && body?.ok) return { ok: true, rank: body.rank, total: body.total, improved: !!body.improved, best: body.best };
-    if (status === 400 && (body?.error === 'name' || body?.error === 'profanity')) return { ok: false, error: body.error };
+    if (status === 400 && (body?.error === 'name' || body?.error === 'profanity' || body?.error === 'run')) return { ok: false, error: body.error };
     if (status === 400 || status === 413) return { ok: false, error: 'invalid' };
     if (status === 429) return { ok: false, error: 'rate' };
   } catch { /* offline or timed out */ }
