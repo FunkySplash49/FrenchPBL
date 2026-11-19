@@ -1,6 +1,9 @@
-import { useLayoutEffect, useRef } from 'react';
-import { ArrowUp, ExternalLink } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { ArrowUp, ExternalLink, X } from 'lucide-react';
 import { useLang, pick } from '../lib/lang';
+import { haptic } from '../lib/haptics';
 import { ScrollTrigger } from '../lib/motion';
 import { PRESENTERS } from '../data/beats';
 import { SCENES } from '../data/scenes';
@@ -14,10 +17,59 @@ const SOURCES = [
   { label: 'Vercingetorix and Alesia — Musée d’Archéologie nationale', href: 'https://musee-archeologienationale.fr/node/740' },
 ];
 
+/* The QR code, enlarged in the middle of the screen like the pictures on the topic pages.
+   The page behind stays exactly where it is: scrolling and the story's keys are held while it is open. */
+function QrZoom({ en, onClose }) {
+  const reduce = useReducedMotion();
+  const layer = useRef(null);
+  const closeBtn = useRef(null);
+
+  useEffect(() => {
+    const back = document.activeElement;
+    closeBtn.current?.focus({ preventScroll: true });
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
+      if (e.key === 'Tab') { e.preventDefault(); closeBtn.current?.focus({ preventScroll: true }); return; }
+      if (e.key !== 'Enter') { e.preventDefault(); e.stopPropagation(); }
+    };
+    const hold = (e) => e.preventDefault();
+    const el = layer.current;
+    window.addEventListener('keydown', onKey, true);
+    el.addEventListener('wheel', hold, { passive: false });
+    el.addEventListener('touchmove', hold, { passive: false });
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      el.removeEventListener('wheel', hold);
+      el.removeEventListener('touchmove', hold);
+      back?.focus?.({ preventScroll: true });
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <motion.div ref={layer} className="qr-zoom" role="dialog" aria-modal="true" aria-label="QR code" onClick={onClose}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <motion.figure
+        initial={reduce ? false : { scale: 0.85, y: 20 }} animate={{ scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img src="./alesia-story-qr.svg" width="640" height="640" alt={en ? 'QR code to open alesia-story.vercel.app' : 'QR code pour ouvrir alesia-story.vercel.app'} />
+        <figcaption>{en ? 'Scan to open the site' : 'Scannez pour ouvrir le site'}</figcaption>
+        <button ref={closeBtn} type="button" className="qr-zoom-close" onClick={onClose} aria-label={en ? 'Close the QR code' : 'Fermer le QR code'}>
+          <X size={18} aria-hidden="true" />
+        </button>
+      </motion.figure>
+    </motion.div>,
+    document.body,
+  );
+}
+
 export default function Outro({ onActive, onTop }) {
   const { lang } = useLang();
   const en = lang === 'en';
   const ref = useRef(null);
+  const [qrOpen, setQrOpen] = useState(false);
+  const closeQr = useRef(() => setQrOpen(false)).current;
 
   useLayoutEffect(() => {
     const st = ScrollTrigger.create({
@@ -46,7 +98,7 @@ export default function Outro({ onActive, onTop }) {
               ))}
             </ul>
           </div>
-          <div>
+          <div className="outro-sources">
             <h3 className="outro-h">Sources</h3>
             <ul className="sources">
               {SOURCES.map((s) => (
@@ -86,6 +138,13 @@ export default function Outro({ onActive, onTop }) {
                 : 'Affichées recadrées et recolorées par un effet « vieille télé ». Fichiers et crédits complets : Wikimedia Commons (numéro = étape du récit, 0 = titre).'}
             </p>
           </div>
+          <figure className="outro-qr">
+            <button type="button" className="outro-qr-btn" onClick={() => { haptic('light'); setQrOpen(true); }}
+              aria-label={en ? 'Enlarge the QR code' : 'Agrandir le QR code'}>
+              <img src="./alesia-story-qr.svg" width="176" height="176" loading="lazy" decoding="async" alt="" />
+            </button>
+            <figcaption className="outro-h">{en ? 'Scan to open the site' : 'Scannez pour ouvrir le site'}</figcaption>
+          </figure>
         </div>
 
         <a className="btn-primary lab-cta" href="https://alesia-game-lab.vercel.app/">
@@ -96,6 +155,7 @@ export default function Outro({ onActive, onTop }) {
           {en ? 'Back to the start' : 'Revenir au début'}
         </button>
       </div>
+      <AnimatePresence>{qrOpen && <QrZoom en={en} onClose={closeQr} />}</AnimatePresence>
     </section>
   );
 }

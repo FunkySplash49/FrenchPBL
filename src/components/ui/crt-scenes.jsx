@@ -515,7 +515,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
             .sort((x, y) => Math.abs(y - want.current) - Math.abs(x - want.current))[0];
           if (far != null && Math.abs(far - want.current) > 1) { gl.deleteTexture(tex.get(far).t); tex.delete(far); }
         }
-        dirty = true;
+        dirty = true; kick();
       }).catch(() => {}).finally(() => loading.delete(i));
     };
     // warm the browser cache with every scene once the first one is on screen
@@ -546,7 +546,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       if (!small && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
       sizeTargets(Math.max(2, Math.round(canvas.width / 4)), Math.max(2, Math.round(canvas.height / 4)));
       pxPerCss = canvas.width / Math.max(1, canvas.getBoundingClientRect().width);
-      dirty = true;
+      dirty = true; kick();
     };
     const ro = new ResizeObserver(() => resize(false));
     ro.observe(canvas);
@@ -555,7 +555,10 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     let mix = 0; let switching = false; let fade = restoring ? 1 : 0;
     let waitingForPicture = restoring;
     let settled = a; let seen = a; let seenAt = performance.now();
-    let t = 0; let last = performance.now(); let raf = 0;
+    let t = 0; let last = performance.now();
+    // reduced motion: the picture is still, so the loop sleeps until something can change it
+    var raf = 0; var sleepT = 0; var started = false;
+    function kick() { clearTimeout(sleepT); if (started && !raf && !dead && !document.hidden) { last = performance.now(); raf = requestAnimationFrame(frame); } }
     let seed = [0, 0]; let seedAt = 0; let drawnAt = 0;
     let bloomAt = -1e9;
     // the glow (bright pass + 4 blurs = 5 of the 6 passes) depends only on the paintings and
@@ -564,7 +567,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     const BLOOM_MS = 125;
     let boxesStale = true; let boxesAt = -1e9;
     const storyEl = document.querySelector('.story');
-    const markStale = () => { boxesStale = true; };
+    const markStale = () => { boxesStale = true; kick(); };
 
     /* Scroll hand-off (touch screens). A phone scrolls the page on the compositor thread:
        the cards move in the very frame the finger moves, while this canvas is drawn from
@@ -593,7 +596,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     // document scroll speed (px/ms): a fling holds the scene switch until it slows (below)
     let scrollAt = -1e9; let lastY = window.scrollY; let lastAt = 0; let speed = 0;
     const onScroll = (e) => {
-      boxesStale = true;
+      boxesStale = true; kick();
       if (e.target !== document && e.target !== root) return; // a box scrolling inside itself
       const now = performance.now(); const y = window.scrollY;
       if (y === lastY) return;
@@ -605,7 +608,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
     // a finger dragging: hand off already (the compositor starts scrolling before the first
     // scroll event reaches this thread, so waiting for it would show one trailing frame)
     let touchAt = -1e9;
-    const onTouchMove = () => { touchAt = performance.now(); };
+    const onTouchMove = () => { touchAt = performance.now(); kick(); };
     window.addEventListener('touchmove', onTouchMove, { passive: true });
     window.addEventListener('scroll', onScroll, { passive: true, capture: true });
     window.addEventListener('resize', markStale, { passive: true });
@@ -693,7 +696,8 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       if (w !== seen) { seen = w; seenAt = now; }
       if (settled !== seen && ((now - seenAt >= settleMs && !flinging) || !tex.has(a))) settled = seen;
       ensure(settled);
-      if (!flinging) { ensure(w); ensure(w + 1); ensure(w - 1); }
+      // the neighbours wait for the first picture, so they never compete with it on a slow connection
+      if (!flinging) { ensure(w); if (tex.has(a)) { ensure(w + 1); ensure(w - 1); } }
       if (!tex.has(a) && tex.has(settled)) { a = settled; b = a; } // very first picture
       if (tex.has(a)) warm();
 
@@ -722,7 +726,10 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       // idle (no switch, no fade-in): the grain only changes every 40 ms and the drift is
       // well under a pixel per frame, so ~30 draws/s look identical to 60 — half the GPU.
       if (!reduce && !switching && fade >= 1 && !dirty && now - drawnAt < IDLE_MS) return;
-      if (reduce && !dirty) return; // nothing moves: keep the last frame
+      if (reduce && !dirty) { // nothing moves: keep the last frame
+        if (!switching && fade >= 1 && !waitingForPicture && live >= 1 && !boxesStale) { cancelAnimationFrame(raf); raf = 0; sleepT = setTimeout(kick, 250); }
+        return;
+      }
       if (waitingForPicture && !tex.has(a)) return; // keep the still picture a moment longer
       dirty = false;
       drawnAt = now;
@@ -768,7 +775,7 @@ export function CrtScenes({ scenes, index = 0, switchMs = 1000, settleMs = 140, 
       if (import.meta.env.DEV) { drawnTop = boxN && boxKind[0] === 0 ? boxData[1] / pxPerCss : NaN; drawnEl = glass0; drawnAmt = live; }
       if (waitingForPicture) { waitingForPicture = false; leaveFallback(); }
     };
-    raf = requestAnimationFrame(frame);
+    raf = requestAnimationFrame(frame); started = true;
 
     const onVis = () => {
       cancelAnimationFrame(raf);

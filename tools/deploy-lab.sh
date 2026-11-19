@@ -18,10 +18,11 @@ npm run build
 
 find "$OUT" -mindepth 1 -maxdepth 1 ! -name .vercel ! -name .gitignore -exec rm -rf {} +
 cp -R dist/. "$OUT/"
-rm "$OUT/index.html"
+rm "$OUT/index.html" "$OUT/sw.js"   # the offline copy belongs to the main site only
 mv "$OUT/game-lab.html" "$OUT/index.html"
 mkdir -p "$OUT/api"
 cp game-lab-api/board.mjs "$OUT/api/board.mjs"
+cp vercel.json "$OUT/vercel.json"   # long cache for the hashed files, so a return visit downloads nothing
 
 echo "staged: $OUT"
 if [ "${1:-}" = "--dry-run" ]; then exit 0; fi

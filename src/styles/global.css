@@ -233,11 +233,6 @@ kbd {
   border: 1px dashed var(--border-strong); border-radius: var(--radius-sm);
   background: rgb(18 10 6 / 0.5);
 }
-.handover-kicker {
-  font-family: var(--font-display); font-size: var(--text-eyebrow); letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text-muted); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
-  margin-bottom: var(--space-2);
-}
 .handover-line { font-style: italic; font-size: var(--text-base); }
 
 /* ── Visual frame ─────────────────────────────────────────────── */
@@ -304,7 +299,6 @@ kbd {
 .scale-text { font-family: var(--font-display); font-size: 8.5px; letter-spacing: 0.12em; fill: var(--text-muted); }
 .north { fill: var(--gold-400); }
 .map-label { font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: 0.06em; fill: var(--text); paint-order: stroke; stroke: rgb(18 10 6 / 0.7); stroke-width: 3px; }
-.map-label-sea { fill: var(--text-muted); font-size: 12px; }
 .map-place { font-family: var(--font-body); font-size: 13px; fill: var(--text); paint-order: stroke; stroke: rgb(18 10 6 / 0.75); stroke-width: 3px; }
 .map-note { font-family: var(--font-body); font-size: 13px; fill: var(--text); }
 .oppidum { fill: var(--gold-400); }
@@ -354,13 +348,6 @@ kbd {
 }
 .card-head { display: flex; align-items: center; gap: var(--space-4); }
 .viz .medallion, .medallion { width: 76px; height: 76px; flex: none; }
-.med-frame-rome { fill: var(--ink-900); stroke: var(--rome-text); stroke-width: 2; }
-.med-frame-gaul { fill: var(--ink-900); stroke: var(--gaul-text); stroke-width: 2; }
-.laurel { fill: var(--gold-400); opacity: 0.85; }
-.torque { fill: none; stroke: var(--gold-400); stroke-width: 5; stroke-linecap: round; }
-.torque-end { fill: var(--gold-400); }
-.med-text { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: 0.08em; fill: var(--text); }
-.med-text-sm { font-size: 9px; letter-spacing: 0.04em; }
 .card-kicker { font-size: var(--text-sm); color: var(--text-muted); }
 .card-name { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 600; letter-spacing: 0.04em; color: var(--rome-text); line-height: 1.2; }
 .card-name-gaul { color: var(--gaul-text); }
@@ -382,21 +369,9 @@ kbd {
 .water { fill: rgb(247 236 214 / 0.07); stroke: rgb(247 236 214 / 0.2); }
 .deck { stroke: var(--rome-text); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
 .divider { stroke: rgb(247 236 214 / 0.12); stroke-width: 1; }
-.cliff { fill: none; stroke: var(--parchment-50); stroke-width: 2.5; }
 .hull { fill: var(--ink-700); stroke: var(--text-muted); stroke-width: 1; }
 .mast { stroke: var(--text-muted); stroke-width: 1.5; }
-
-/* ── Gergovie ─────────────────────────────────────────────────── */
-.momentum { display: grid; gap: var(--space-3); }
 .mo { display: grid; grid-template-columns: 7.5rem 1fr 1.5rem; align-items: center; gap: var(--space-3); }
-.mo-label { display: inline-flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-weight: 600; letter-spacing: 0.08em; }
-.mo-bar { height: 14px; border-radius: var(--radius-full); background: var(--ink-700); overflow: hidden; }
-.mo-fill { display: block; height: 100%; transform-origin: left center; }
-.mo-rome .mo-fill { background: var(--rome); transform: scaleX(0.42); }
-.mo-gaul .mo-fill { background: var(--gaul-text); transform: scaleX(0.88); }
-.mo-arrow { font-family: var(--font-display); font-size: var(--text-xl); text-align: center; }
-.mo-rome .mo-arrow { color: var(--rome-text); }
-.mo-gaul .mo-arrow { color: var(--gaul-text); }
 .losses { display: grid; gap: var(--space-2); }
 .centurions { max-width: 420px; }
 .losses-text { font-size: var(--text-base); }
@@ -444,10 +419,7 @@ kbd {
 .legacy-grid { display: grid; grid-template-columns: 9rem 1fr; gap: var(--space-5); align-items: end; }
 .statue-wrap { display: grid; gap: var(--space-2); justify-items: center; }
 .statue { width: 100%; max-width: 9rem; }
-.plinth { fill: var(--ink-700); stroke: var(--border-strong); }
 .figure { fill: var(--clay-600); stroke: var(--amber-300); stroke-width: 1; }
-.hair { fill: none; stroke: var(--amber-300); stroke-width: 1.5; stroke-linecap: round; }
-.sword { stroke: var(--text-muted); stroke-width: 3; stroke-linecap: round; }
 .statue-cap { font-size: var(--text-sm); color: var(--text-muted); text-align: center; line-height: 1.4; }
 .after { display: grid; gap: var(--space-2); }
 .after li { display: grid; grid-template-columns: 6.5rem 1fr; gap: var(--space-3); font-size: var(--text-sm); line-height: 1.45; }
@@ -462,11 +434,24 @@ kbd {
 .outro-title { font-family: var(--font-display); font-size: var(--text-3xl); font-weight: 600; letter-spacing: 0.03em; }
 .caveat { max-width: var(--measure); color: var(--text-muted); }
 .outro-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--space-7); }
+.outro-sources { grid-column: 2; grid-row: 1 / span 2; }
+.outro-qr { grid-column: 1; grid-row: 2; align-self: end; display: grid; gap: var(--space-3); justify-items: start; margin: 0; }
+.outro-qr img { display: block; width: 176px; height: 176px; padding: var(--space-2); box-sizing: border-box; background: #fff; border-radius: var(--radius-sm); }
+.outro-qr figcaption { margin: 0; }
+.outro-qr-btn { display: block; padding: 0; border: 0; background: none; border-radius: var(--radius-sm); cursor: zoom-in; }
+.outro-qr-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+/* enlarged, with the same backdrop and spring as the pictures on the topic pages */
+.qr-zoom { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: var(--space-4); background: rgb(18 10 6 / 0.94); cursor: zoom-out; touch-action: none; }
+.qr-zoom figure { margin: 0; display: grid; gap: var(--space-3); justify-items: center; cursor: default; }
+.qr-zoom img { display: block; width: min(calc(86vw / var(--z, 1)), calc(70svh / var(--z, 1)), 640px); height: auto; aspect-ratio: 1; padding: var(--space-3); box-sizing: border-box; background: #fff; border-radius: var(--radius-sm); }
+.qr-zoom figcaption { color: var(--text-muted); font-size: var(--text-sm); text-align: center; }
+.qr-zoom-close { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border-radius: 50%; cursor: pointer; color: var(--text); background: rgb(18 10 6 / 0.7); border: 1px solid var(--border-strong); }
+.qr-zoom-close:hover { border-color: var(--accent); color: var(--accent-strong); }
+.qr-zoom-close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 .outro-h { font-family: var(--font-display); font-size: var(--text-eyebrow); font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); margin-bottom: var(--space-3); }
 .team { display: grid; gap: var(--space-3); }
 .team li { display: grid; gap: 2px; }
 .team-name { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.06em; }
-.team-part { font-size: var(--text-sm); color: var(--text-muted); }
 .sources { display: grid; gap: var(--space-2); font-size: var(--text-sm); }
 .sources a { display: inline-flex; gap: var(--space-2); align-items: center; padding: var(--space-1) 0; min-height: 32px; }
 .outro-inner .btn-ghost { justify-self: start; }
@@ -517,6 +502,7 @@ kbd {
   .beat-copy { max-width: 42rem; }
   .map-svg { max-height: none; }
   .outro-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+  .outro-sources, .outro-qr { grid-column: auto; grid-row: auto; }
 }
 @media (max-width: 899px) {
   .rail-steps { display: none; }

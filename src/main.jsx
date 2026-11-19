@@ -22,3 +22,16 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 );
+
+/* After the page has loaded, keep a copy on this device: repeat visits open faster and the
+   presentation still works without internet. See tools/make-sw.mjs. */
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    (window.requestIdleCallback || setTimeout)(() => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(() => navigator.serviceWorker.ready)
+        .then((reg) => reg.active?.postMessage('precache'))
+        .catch(() => {});
+    }, { timeout: 2000 });
+  });
+}
